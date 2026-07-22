@@ -155,3 +155,4 @@ to the Play Console (requires a Google Play Developer account).
 - Native binaries (`.ipa`/`.apk`) were not compiled in this environment (no Xcode.app /
   Android Studio installed here) — the native projects are fully generated and synced,
   ready to open and build on a machine with those toolchains installed.
+# Insorts_News
