@@ -1,0 +1,13 @@
+{
+  "appId": "com.insortsnews.app",
+  "appName": "Insorts News",
+  "webDir": "dist",
+  "backgroundColor": "#4f46e5",
+  "android": {
+    "backgroundColor": "#4f46e5"
+  },
+  "ios": {
+    "backgroundColor": "#4f46e5",
+    "contentInset": "always"
+  }
+}

@@ -1,0 +1,28 @@
+import { apiClient } from './client'
+
+export async function fetchArticles({ page = 1, pageSize = 12, category, search } = {}) {
+  const { data } = await apiClient.get('/articles', {
+    params: {
+      page,
+      page_size: pageSize,
+      category: category && category !== 'all' ? category : undefined,
+      search: search || undefined,
+    },
+  })
+  return data
+}
+
+export async function fetchTrendingArticles(limit = 8) {
+  const { data } = await apiClient.get('/articles/trending', { params: { limit } })
+  return data
+}
+
+export async function fetchArticle(id) {
+  const { data } = await apiClient.get(`/articles/${id}`)
+  return data
+}
+
+export async function fetchCategories() {
+  const { data } = await apiClient.get('/categories')
+  return data
+}
