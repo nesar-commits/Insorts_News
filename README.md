@@ -141,6 +141,7 @@ to the Play Console (requires a Google Play Developer account).
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT lifetime |
 | `CORS_ORIGINS` | Comma-separated allowed origins (includes `capacitor://localhost` for the mobile shell) |
 | `RSS_FETCH_INTERVAL_MINUTES` | How often the background ingest job runs |
+| `ARTICLE_RETENTION_DAYS` | Articles older than this (and not bookmarked by anyone) are auto-deleted each ingest cycle |
 
 **frontend/.env**
 | Var | Purpose |

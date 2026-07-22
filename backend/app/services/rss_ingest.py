@@ -8,6 +8,7 @@ import feedparser
 import httpx
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.article import Article
 from app.models.category import Category
 from app.models.source import Source
@@ -206,6 +207,23 @@ def fetch_and_store_source(db: Session, source: Source) -> int:
     return new_count
 
 
+def delete_stale_articles(db: Session, retention_days: int) -> int:
+    """Purges articles older than the retention window — but never one a user
+    has bookmarked, since the whole point of saving an article is to keep it
+    around longer than the feed's normal lifespan.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    deleted = (
+        db.query(Article)
+        .filter(Article.published_at < cutoff)
+        .filter(~Article.bookmarked_by.any())
+        .delete(synchronize_session=False)
+    )
+    if deleted:
+        db.commit()
+    return deleted
+
+
 def fetch_and_store_all(db: Session) -> int:
     ensure_categories_and_sources(db)
 
@@ -216,6 +234,10 @@ def fetch_and_store_all(db: Session) -> int:
         except Exception:
             logger.exception("Failed to fetch feed %s (%s)", source.name, source.feed_url)
             db.rollback()
+
+    deleted = delete_stale_articles(db, settings.ARTICLE_RETENTION_DAYS)
+    if deleted:
+        logger.info("Deleted %d articles older than %d days", deleted, settings.ARTICLE_RETENTION_DAYS)
 
     logger.info("RSS ingest complete: %d new articles", total_new)
     return total_new

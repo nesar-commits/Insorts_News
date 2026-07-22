@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:4173,capacitor://localhost,http://localhost"
 
     RSS_FETCH_INTERVAL_MINUTES: int = 15
+    ARTICLE_RETENTION_DAYS: int = 3
 
     @property
     def cors_origin_list(self) -> list[str]:
