@@ -9,7 +9,7 @@ import { Spinner } from '../components/Spinner'
 import { useInView } from '../hooks/useInView'
 
 export function Bookmarks() {
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['bookmarks'],
     queryFn: ({ pageParam = 1 }) => fetchBookmarks({ page: pageParam }),
     getNextPageParam: (lastPage) => (lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined),
@@ -30,7 +30,15 @@ export function Bookmarks() {
 
       {isLoading && <ArticleGridSkeleton count={6} />}
 
-      {!isLoading && articles.length === 0 && (
+      {isError && (
+        <EmptyState
+          icon={Bookmark}
+          title="Couldn't load your saved articles"
+          description="Check your connection and try again in a moment."
+        />
+      )}
+
+      {!isLoading && !isError && articles.length === 0 && (
         <EmptyState
           icon={Bookmark}
           title="No saved articles yet"

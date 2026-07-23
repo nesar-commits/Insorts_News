@@ -11,7 +11,7 @@ export function Register() {
   const { showToast } = useToast()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '' })
+  const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -21,14 +21,27 @@ export function Register() {
     e.preventDefault()
     setError('')
 
+    const username = form.username.trim()
+    const fullName = form.fullName.trim()
+
+    if (!username || username.length < 3) {
+      setError('Username must be at least 3 characters')
+      return
+    }
+
     if (form.password.length < 8) {
       setError('Password must be at least 8 characters')
       return
     }
 
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
     setSubmitting(true)
     try {
-      await register(form)
+      await register({ ...form, username, fullName: fullName || null })
       showToast('Account created — welcome to Insorts News!', 'success')
       navigate('/', { replace: true })
     } catch (err) {
@@ -96,6 +109,18 @@ export function Register() {
             onChange={update('password')}
             className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-gray-900 dark:text-white"
             placeholder="At least 8 characters"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm password</span>
+          <PasswordInput
+            required
+            minLength={8}
+            value={form.confirmPassword}
+            onChange={update('confirmPassword')}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-brand-400 dark:border-white/10 dark:bg-gray-900 dark:text-white"
+            placeholder="Re-enter your password"
           />
         </label>
 

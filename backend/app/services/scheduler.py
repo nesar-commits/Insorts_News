@@ -27,6 +27,8 @@ def start_scheduler() -> None:
         "interval",
         minutes=settings.RSS_FETCH_INTERVAL_MINUTES,
         id="rss_ingest",
+        max_instances=1,
+        coalesce=True,
     )
     scheduler.start()
     logger.info("RSS ingest scheduler started (every %s minutes)", settings.RSS_FETCH_INTERVAL_MINUTES)

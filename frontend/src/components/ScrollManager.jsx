@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigationType } from 'react-router-dom'
 
 // In-memory only (intentionally not persisted) — a hard reload should always
@@ -10,14 +10,20 @@ const scrollPositions = new Map()
 export function ScrollManager() {
   const location = useLocation()
   const navigationType = useNavigationType()
+  const prevPathnameRef = useRef(location.pathname)
 
   useEffect(() => {
+    const pathnameChanged = prevPathnameRef.current !== location.pathname
+    prevPathnameRef.current = location.pathname
+
     if (navigationType === 'POP' && scrollPositions.has(location.key)) {
       window.scrollTo(0, scrollPositions.get(location.key))
-    } else {
+    } else if (pathnameChanged) {
       window.scrollTo(0, 0)
     }
-  }, [location.key, navigationType])
+    // Same pathname with only search params changing (e.g. SearchPage's
+    // debounced ?q= updates) isn't a real navigation — leave scroll alone.
+  }, [location.key, location.pathname, navigationType])
 
   useEffect(() => {
     const handleScroll = () => {

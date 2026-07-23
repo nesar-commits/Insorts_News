@@ -10,6 +10,7 @@ class Article(Base):
     __tablename__ = "articles"
     __table_args__ = (
         Index("ix_articles_category_published", "category_id", "published_at"),
+        Index("ix_articles_published_at", "published_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

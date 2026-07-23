@@ -13,8 +13,12 @@ export function useShareArticle() {
         if (err?.name === 'AbortError') return
       }
     }
-    await navigator.clipboard.writeText(article.url)
-    showToast('Link copied to clipboard', 'success')
+    try {
+      await navigator.clipboard.writeText(article.url)
+      showToast('Link copied to clipboard', 'success')
+    } catch {
+      showToast('Could not share this article', 'error')
+    }
   }
 
   return { share }

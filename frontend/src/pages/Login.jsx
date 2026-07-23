@@ -26,7 +26,11 @@ export function Login() {
       showToast('Welcome back!', 'success')
       navigate(location.state?.from?.pathname || '/', { replace: true })
     } catch (err) {
-      setError(getErrorMessage(err, 'Incorrect email or password'))
+      if (!err?.response) {
+        setError('Network error. Check your connection and try again.')
+      } else {
+        setError(getErrorMessage(err, 'Incorrect email or password'))
+      }
     } finally {
       setSubmitting(false)
     }

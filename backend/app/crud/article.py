@@ -27,8 +27,11 @@ def get_articles(
         query = query.join(Category).filter(Category.slug == category_slug)
 
     if search:
-        like = f"%{search}%"
-        query = query.filter(or_(Article.title.ilike(like), Article.summary.ilike(like)))
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
+        query = query.filter(
+            or_(Article.title.ilike(like, escape="\\"), Article.summary.ilike(like, escape="\\"))
+        )
 
     total = query.with_entities(func.count(Article.id)).scalar() or 0
 

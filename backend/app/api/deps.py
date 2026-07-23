@@ -25,7 +25,10 @@ def get_current_user(
     user_id = decode_access_token(token)
     if user_id is None:
         raise credentials_exception
-    user = get_user(db, int(user_id))
+    try:
+        user = get_user(db, int(user_id))
+    except (TypeError, ValueError):
+        raise credentials_exception
     if user is None:
         raise credentials_exception
     return user
@@ -40,4 +43,7 @@ def get_optional_current_user(
     user_id = decode_access_token(token)
     if user_id is None:
         return None
-    return get_user(db, int(user_id))
+    try:
+        return get_user(db, int(user_id))
+    except (TypeError, ValueError):
+        return None

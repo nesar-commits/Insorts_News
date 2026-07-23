@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { fetchCurrentUser, loginUser, registerUser } from '../api/auth'
 import { SESSION_EXPIRED_EVENT } from '../api/client'
 import { useToast } from './ToastContext'
@@ -7,6 +8,7 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem('insorts_user')
     return raw ? JSON.parse(raw) : null
@@ -24,10 +26,15 @@ export function AuthProvider({ children }) {
         setUser(freshUser)
         localStorage.setItem('insorts_user', JSON.stringify(freshUser))
       })
-      .catch(() => {
-        localStorage.removeItem('insorts_token')
-        localStorage.removeItem('insorts_user')
-        setUser(null)
+      .catch((error) => {
+        // Only clear the session on a confirmed invalid/expired token (401).
+        // Network errors or a temporarily unreachable API shouldn't log the
+        // user out — keep the cached user from localStorage in that case.
+        if (error?.response?.status === 401) {
+          localStorage.removeItem('insorts_token')
+          localStorage.removeItem('insorts_user')
+          setUser(null)
+        }
       })
       .finally(() => setLoading(false))
   }, [])
@@ -45,6 +52,13 @@ export function AuthProvider({ children }) {
     localStorage.setItem('insorts_token', token)
     localStorage.setItem('insorts_user', JSON.stringify(sessionUser))
     setUser(sessionUser)
+    // Cached article/trending/bookmark data may carry the previous (or
+    // anonymous) user's personalized fields like is_bookmarked — drop it so
+    // the feed refetches under the new identity instead of serving stale data.
+    queryClient.invalidateQueries({ queryKey: ['articles'] })
+    queryClient.invalidateQueries({ queryKey: ['trending'] })
+    queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
+    queryClient.invalidateQueries({ queryKey: ['article'] })
   }
 
   const login = async (email, password) => {
@@ -63,6 +77,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('insorts_token')
     localStorage.removeItem('insorts_user')
     setUser(null)
+    queryClient.invalidateQueries({ queryKey: ['articles'] })
+    queryClient.invalidateQueries({ queryKey: ['trending'] })
+    queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
+    queryClient.invalidateQueries({ queryKey: ['article'] })
   }
 
   const value = useMemo(

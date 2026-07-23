@@ -1,4 +1,5 @@
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.article import Article
@@ -16,7 +17,13 @@ def get_bookmark(db: Session, user_id: int, article_id: int) -> Bookmark | None:
 def create_bookmark(db: Session, user_id: int, article_id: int) -> Bookmark:
     bookmark = Bookmark(user_id=user_id, article_id=article_id)
     db.add(bookmark)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two concurrent requests raced to bookmark the same article — the
+        # other one won, so just return the row it created.
+        db.rollback()
+        return get_bookmark(db, user_id, article_id)
     db.refresh(bookmark)
     return bookmark
 

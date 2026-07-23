@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search as SearchIcon, X } from 'lucide-react'
 import { ArticleCard } from '../components/ArticleCard'
@@ -13,14 +13,26 @@ export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const debouncedQuery = useDebounce(query, 400)
+  const lastPushedQuery = useRef(debouncedQuery)
 
   useEffect(() => {
+    lastPushedQuery.current = debouncedQuery
     if (debouncedQuery) {
       setSearchParams({ q: debouncedQuery }, { replace: true })
     } else {
       setSearchParams({}, { replace: true })
     }
   }, [debouncedQuery, setSearchParams])
+
+  // Someone navigated to /search?q=... while this page was already mounted
+  // (e.g. the NavBar's desktop search box) — resync from the URL instead of
+  // silently keeping the stale query/results.
+  useEffect(() => {
+    const urlQuery = searchParams.get('q') || ''
+    if (urlQuery !== lastPushedQuery.current) {
+      setQuery(urlQuery)
+    }
+  }, [searchParams])
 
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteArticles({
     search: debouncedQuery,

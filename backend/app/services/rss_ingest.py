@@ -1,11 +1,12 @@
+import calendar
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from time import mktime
 from urllib.parse import urlparse
 
 import feedparser
 import httpx
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -134,7 +135,9 @@ def _extract_image(entry) -> str | None:
 def _parse_published(entry) -> datetime:
     parsed = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
     if parsed:
-        return datetime.fromtimestamp(mktime(parsed), tz=timezone.utc)
+        # feedparser's *_parsed tuples are already UTC — mktime() would wrongly
+        # interpret them as local time, so use timegm() to convert as UTC.
+        return datetime.fromtimestamp(calendar.timegm(parsed), tz=timezone.utc)
     return datetime.now(timezone.utc)
 
 
@@ -199,7 +202,14 @@ def fetch_and_store_source(db: Session, source: Source) -> int:
             category_id=source.category_id,
             published_at=published_at,
         )
-        db.add(article)
+        try:
+            with db.begin_nested():
+                db.add(article)
+                db.flush()
+        except IntegrityError:
+            # Another concurrent ingest run already inserted this URL — skip it
+            # without discarding the rest of this batch's articles.
+            continue
         new_count += 1
 
     if new_count:
