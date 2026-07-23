@@ -1,4 +1,6 @@
-from sqlalchemy import func, or_
+from datetime import datetime
+
+from sqlalchemy import func, or_, tuple_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.article import Article
@@ -20,6 +22,7 @@ def get_articles(
     page_size: int = 20,
     category_slug: str | None = None,
     search: str | None = None,
+    cursor: tuple[datetime, int] | None = None,
 ) -> tuple[list[Article], int]:
     query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
 
@@ -35,12 +38,21 @@ def get_articles(
 
     total = query.with_entities(func.count(Article.id)).scalar() or 0
 
-    items = (
-        query.order_by(Article.published_at.desc(), Article.id.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
+    query = query.order_by(Article.published_at.desc(), Article.id.desc())
+
+    if cursor is not None:
+        # Keyset pagination: anchor to the last-seen (published_at, id) rather
+        # than a numeric offset, so articles inserted/deleted by the RSS job
+        # between page fetches can't shift the window and duplicate or skip
+        # a row — unlike OFFSET, this is stable under a concurrently-changing set.
+        cursor_published_at, cursor_id = cursor
+        items = (
+            query.filter(tuple_(Article.published_at, Article.id) < (cursor_published_at, cursor_id))
+            .limit(page_size)
+            .all()
+        )
+    else:
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
 
 

@@ -1,4 +1,4 @@
-import math
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -18,27 +18,42 @@ def _to_article_read(article, bookmarked_ids: set[int]) -> ArticleRead:
     return data
 
 
+def _decode_cursor(cursor: str) -> tuple[datetime, int]:
+    try:
+        published_at_raw, id_raw = cursor.rsplit("_", 1)
+        return datetime.fromisoformat(published_at_raw), int(id_raw)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid pagination cursor")
+
+
+def _encode_cursor(published_at: datetime, article_id: int) -> str:
+    return f"{published_at.isoformat()}_{article_id}"
+
+
 @router.get("", response_model=PaginatedArticles)
 def list_articles(
-    page: int = Query(1, ge=1),
+    cursor: str | None = Query(None, description="Opaque cursor from a previous response's next_cursor"),
     page_size: int = Query(20, ge=1, le=50),
     category: str | None = Query(None, description="Category slug, or omit for all"),
     search: str | None = Query(None, min_length=1, max_length=200),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    items, total = get_articles(db, page=page, page_size=page_size, category_slug=category, search=search)
+    decoded_cursor = _decode_cursor(cursor) if cursor else None
+    items, total = get_articles(
+        db, page_size=page_size, category_slug=category, search=search, cursor=decoded_cursor
+    )
 
     bookmarked_ids = (
         get_bookmarked_article_ids(db, current_user.id, [a.id for a in items]) if current_user else set()
     )
 
+    next_cursor = _encode_cursor(items[-1].published_at, items[-1].id) if len(items) == page_size else None
+
     return PaginatedArticles(
         items=[_to_article_read(a, bookmarked_ids) for a in items],
-        page=page,
-        page_size=page_size,
         total=total,
-        total_pages=max(1, math.ceil(total / page_size)),
+        next_cursor=next_cursor,
     )
 
 

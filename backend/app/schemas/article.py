@@ -31,7 +31,12 @@ class ArticleRead(BaseModel):
 
 class PaginatedArticles(BaseModel):
     items: list[ArticleRead]
-    page: int
-    page_size: int
     total: int
-    total_pages: int
+    # Offset-pagination fields — still used by /bookmarks, which isn't
+    # subject to the concurrent insert/delete churn the RSS job causes.
+    page: int | None = None
+    page_size: int | None = None
+    total_pages: int | None = None
+    # Keyset-pagination field — used by /articles' infinite scroll instead,
+    # since that list actually changes under the reader while they scroll.
+    next_cursor: str | None = None

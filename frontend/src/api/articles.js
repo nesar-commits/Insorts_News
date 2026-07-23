@@ -1,9 +1,9 @@
 import { apiClient } from './client'
 
-export async function fetchArticles({ page = 1, pageSize = 12, category, search } = {}) {
+export async function fetchArticles({ cursor, pageSize = 12, category, search } = {}) {
   const { data } = await apiClient.get('/articles', {
     params: {
-      page,
+      cursor,
       page_size: pageSize,
       category: category && category !== 'all' ? category : undefined,
       search: search || undefined,
