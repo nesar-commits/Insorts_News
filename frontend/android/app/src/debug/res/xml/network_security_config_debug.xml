@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-build-only override: Android 9+ blocks plaintext HTTP by default, but
+  the local dev backend is served over http:// on the LAN. This is merged
+  into debug builds only (see src/debug/AndroidManifest.xml) — release builds
+  keep the platform default of blocking cleartext traffic entirely.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
