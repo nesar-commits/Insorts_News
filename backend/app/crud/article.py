@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.article import Article
 from app.models.bookmark import Bookmark
 from app.models.category import Category
+from app.models.source import Source
 
 
 def get_categories(db: Session) -> list[Category]:
@@ -23,11 +24,15 @@ def get_articles(
     category_slug: str | None = None,
     search: str | None = None,
     cursor: tuple[datetime, int] | None = None,
+    region: str | None = None,
 ) -> tuple[list[Article], int]:
     query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
 
     if category_slug and category_slug != "all":
         query = query.join(Category).filter(Category.slug == category_slug)
+
+    if region:
+        query = query.join(Source, Article.source_id == Source.id).filter(Source.region == region)
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -54,6 +59,16 @@ def get_articles(
     else:
         items = query.offset((page - 1) * page_size).limit(page_size).all()
     return items, total
+
+
+def region_has_articles(db: Session, region: str) -> bool:
+    return (
+        db.query(Article.id)
+        .join(Source, Article.source_id == Source.id)
+        .filter(Source.region == region)
+        .first()
+        is not None
+    )
 
 
 def get_article(db: Session, article_id: int) -> Article | None:

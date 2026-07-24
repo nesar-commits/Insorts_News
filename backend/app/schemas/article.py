@@ -40,3 +40,7 @@ class PaginatedArticles(BaseModel):
     # Keyset-pagination field — used by /articles' infinite scroll instead,
     # since that list actually changes under the reader while they scroll.
     next_cursor: str | None = None
+    # Set only when ?nearby=true actually matched articles for the visitor's
+    # detected region — None means this is the general/unfiltered feed,
+    # either because nearby wasn't requested or no local news was found.
+    region: str | None = None

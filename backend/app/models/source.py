@@ -13,6 +13,9 @@ class Source(Base):
     site_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
+    # ISO 3166-1 alpha-2 country code this source primarily covers, or None
+    # if it isn't tied to one — powers "nearby news" (see geolocation.py).
+    region: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     category: Mapped["Category"] = relationship(back_populates="sources")
     articles: Mapped[list["Article"]] = relationship(back_populates="source")
