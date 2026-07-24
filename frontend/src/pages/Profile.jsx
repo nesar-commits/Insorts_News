@@ -1,10 +1,28 @@
-import { LogOut, Mail, User as UserIcon, Moon, Sun } from 'lucide-react'
+import { LogOut, Mail, User as UserIcon, Moon, Sun, Bell, BellOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { usePushNotifications } from '../hooks/usePushNotifications'
+import { useToast } from '../context/ToastContext'
 
 export function Profile() {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { supported, subscribed, loading, subscribe, unsubscribe } = usePushNotifications()
+  const { showToast } = useToast()
+
+  const handleToggleNotifications = async () => {
+    if (subscribed) {
+      await unsubscribe()
+      showToast('Breaking news notifications turned off', 'info')
+      return
+    }
+    const granted = await subscribe()
+    if (granted) {
+      showToast('Breaking news notifications turned on', 'success')
+    } else {
+      showToast('Notifications were blocked — enable them in your browser settings', 'error')
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 pt-4">
@@ -37,6 +55,23 @@ export function Profile() {
             Switch to {theme === 'dark' ? 'light' : 'dark'} mode
           </span>
         </button>
+
+        {supported && !loading && (
+          <button
+            type="button"
+            onClick={handleToggleNotifications}
+            className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-3.5 text-left dark:border-white/10"
+          >
+            {subscribed ? (
+              <BellOff size={18} className="text-gray-400" />
+            ) : (
+              <Bell size={18} className="text-gray-400" />
+            )}
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              {subscribed ? 'Turn off breaking news notifications' : 'Get breaking news notifications'}
+            </span>
+          </button>
+        )}
       </div>
 
       <button

@@ -21,3 +21,11 @@ services:
         value: "15"
       - key: ARTICLE_RETENTION_DAYS
         value: "3"
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:admin@insortsnews.example
+      - key: PUSH_NOTIFICATION_COOLDOWN_MINUTES
+        value: "30"

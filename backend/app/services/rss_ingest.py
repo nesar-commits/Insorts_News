@@ -13,9 +13,15 @@ from app.core.config import settings
 from app.models.article import Article
 from app.models.category import Category
 from app.models.source import Source
+from app.services.push_notify import send_push_to_all
 from app.services.rss_sources import CATEGORIES, FEEDS
 
 logger = logging.getLogger("rss_ingest")
+
+# Process-local, deliberately not persisted — this app runs as a single
+# uvicorn worker (see scheduler.py's max_instances=1), so an in-memory
+# cooldown is enough and avoids a migration just for a rate-limit timestamp.
+_last_push_sent_at: datetime | None = None
 
 IMG_TAG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
 
@@ -163,9 +169,9 @@ def _is_recent_duplicate(db: Session, source: Source, title: str, published_at: 
     )
 
 
-def fetch_and_store_source(db: Session, source: Source) -> int:
+def fetch_and_store_source(db: Session, source: Source) -> list[Article]:
     parsed = feedparser.parse(source.feed_url)
-    new_count = 0
+    new_articles: list[Article] = []
     seen_urls: set[str] = set()
     seen_titles_this_batch: set[str] = set()
 
@@ -210,11 +216,11 @@ def fetch_and_store_source(db: Session, source: Source) -> int:
             # Another concurrent ingest run already inserted this URL — skip it
             # without discarding the rest of this batch's articles.
             continue
-        new_count += 1
+        new_articles.append(article)
 
-    if new_count:
+    if new_articles:
         db.commit()
-    return new_count
+    return new_articles
 
 
 def delete_stale_articles(db: Session, retention_days: int) -> int:
@@ -234,16 +240,43 @@ def delete_stale_articles(db: Session, retention_days: int) -> int:
     return deleted
 
 
+def _maybe_send_breaking_news_push(db: Session, new_articles: list[Article]) -> None:
+    """Sends at most one push per cooldown window, for the single newest
+    article this cycle — not one per article, which would spam subscribers
+    every RSS_FETCH_INTERVAL_MINUTES.
+    """
+    global _last_push_sent_at
+    now = datetime.now(timezone.utc)
+    cooldown = timedelta(minutes=settings.PUSH_NOTIFICATION_COOLDOWN_MINUTES)
+    if _last_push_sent_at is not None and now - _last_push_sent_at < cooldown:
+        return
+
+    top_article = max(new_articles, key=lambda a: a.published_at)
+    sent = send_push_to_all(
+        db,
+        title="Breaking news",
+        body=top_article.title,
+        url=f"/article/{top_article.id}",
+    )
+    if sent:
+        _last_push_sent_at = now
+        logger.info("Sent breaking-news push for article %d to %d subscribers", top_article.id, sent)
+
+
 def fetch_and_store_all(db: Session) -> int:
     ensure_categories_and_sources(db)
 
-    total_new = 0
+    all_new: list[Article] = []
     for source in db.query(Source).all():
         try:
-            total_new += fetch_and_store_source(db, source)
+            all_new.extend(fetch_and_store_source(db, source))
         except Exception:
             logger.exception("Failed to fetch feed %s (%s)", source.name, source.feed_url)
             db.rollback()
+    total_new = len(all_new)
+
+    if all_new:
+        _maybe_send_breaking_news_push(db, all_new)
 
     deleted = delete_stale_articles(db, settings.ARTICLE_RETENTION_DAYS)
     if deleted:

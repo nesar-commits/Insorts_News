@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import articles, auth, bookmarks, categories, users
+from app.api.routes import articles, auth, bookmarks, categories, push, users
 from app.core.config import settings
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -33,6 +33,7 @@ app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(categories.router, prefix=settings.API_V1_PREFIX)
 app.include_router(articles.router, prefix=settings.API_V1_PREFIX)
 app.include_router(bookmarks.router, prefix=settings.API_V1_PREFIX)
+app.include_router(push.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health")

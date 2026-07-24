@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     RSS_FETCH_INTERVAL_MINUTES: int = 15
     ARTICLE_RETENTION_DAYS: int = 3
 
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:admin@insortsnews.example"
+    # Minimum gap between breaking-news pushes, so a burst of new articles in
+    # one ingest cycle doesn't spam every subscriber's device.
+    PUSH_NOTIFICATION_COOLDOWN_MINUTES: int = 30
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
