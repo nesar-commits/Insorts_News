@@ -1,6 +1,7 @@
 import calendar
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
@@ -22,6 +23,20 @@ logger = logging.getLogger("rss_ingest")
 # uvicorn worker (see scheduler.py's max_instances=1), so an in-memory
 # cooldown is enough and avoids a migration just for a rate-limit timestamp.
 _last_push_sent_at: datetime | None = None
+
+
+@dataclass
+class NewArticle:
+    """Plain snapshot of a just-inserted article's id/title/published_at —
+    used for the breaking-news push. Deliberately not the ORM Article object
+    itself: holding that across a whole ingest run risks ObjectDeletedError
+    if a later `db.rollback()` (or a concurrent process touching the same
+    row) expires it before we get to use it.
+    """
+
+    id: int
+    title: str
+    published_at: datetime
 
 IMG_TAG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
 
@@ -173,9 +188,9 @@ def _is_recent_duplicate(db: Session, source: Source, title: str, published_at: 
     )
 
 
-def fetch_and_store_source(db: Session, source: Source) -> list[Article]:
+def fetch_and_store_source(db: Session, source: Source) -> list[NewArticle]:
     parsed = feedparser.parse(source.feed_url)
-    new_articles: list[Article] = []
+    new_articles: list[NewArticle] = []
     seen_urls: set[str] = set()
     seen_titles_this_batch: set[str] = set()
 
@@ -220,7 +235,9 @@ def fetch_and_store_source(db: Session, source: Source) -> list[Article]:
             # Another concurrent ingest run already inserted this URL — skip it
             # without discarding the rest of this batch's articles.
             continue
-        new_articles.append(article)
+        # Snapshot now, while the row is guaranteed fresh — see NewArticle's
+        # docstring for why we don't hold onto the ORM object itself.
+        new_articles.append(NewArticle(id=article.id, title=article.title, published_at=article.published_at))
 
     if new_articles:
         db.commit()
@@ -244,7 +261,7 @@ def delete_stale_articles(db: Session, retention_days: int) -> int:
     return deleted
 
 
-def _maybe_send_breaking_news_push(db: Session, new_articles: list[Article]) -> None:
+def _maybe_send_breaking_news_push(db: Session, new_articles: list[NewArticle]) -> None:
     """Sends at most one push per cooldown window, for the single newest
     article this cycle — not one per article, which would spam subscribers
     every RSS_FETCH_INTERVAL_MINUTES.
@@ -270,7 +287,7 @@ def _maybe_send_breaking_news_push(db: Session, new_articles: list[Article]) -> 
 def fetch_and_store_all(db: Session) -> int:
     ensure_categories_and_sources(db)
 
-    all_new: list[Article] = []
+    all_new: list[NewArticle] = []
     for source in db.query(Source).all():
         try:
             all_new.extend(fetch_and_store_source(db, source))
@@ -280,7 +297,13 @@ def fetch_and_store_all(db: Session) -> int:
     total_new = len(all_new)
 
     if all_new:
-        _maybe_send_breaking_news_push(db, all_new)
+        try:
+            _maybe_send_breaking_news_push(db, all_new)
+        except Exception:
+            # Best-effort feature — must never take down the core ingest
+            # pipeline (e.g. delete_stale_articles below still needs to run).
+            logger.exception("Breaking-news push failed")
+            db.rollback()
 
     deleted = delete_stale_articles(db, settings.ARTICLE_RETENTION_DAYS)
     if deleted:
