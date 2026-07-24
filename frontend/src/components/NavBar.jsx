@@ -1,15 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Moon, Sun, Search, Newspaper, Zap, LogOut, User as UserIcon } from 'lucide-react'
+import { Moon, Sun, Search, Newspaper, Zap, LogOut, User as UserIcon, Download, Share, SquarePlus } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { usePwaInstall } from '../hooks/usePwaInstall'
 import { useState } from 'react'
 
 export function NavBar() {
   const { theme, toggleTheme } = useTheme()
   const { user, isAuthenticated, logout } = useAuth()
+  const { canInstall, needsIosInstructions, install } = usePwaInstall()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [iosHelpOpen, setIosHelpOpen] = useState(false)
 
   const submitSearch = (e) => {
     e.preventDefault()
@@ -53,6 +56,44 @@ export function NavBar() {
         >
           <Search size={19} />
         </Link>
+
+        {(canInstall || needsIosInstructions) && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => (canInstall ? install() : setIosHelpOpen((o) => !o))}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-brand-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+            >
+              <Download size={15} />
+              <span className="hidden sm:inline">Install app</span>
+            </button>
+
+            {iosHelpOpen && needsIosInstructions && (
+              <div
+                className="absolute right-0 top-11 w-64 rounded-xl border border-gray-100 bg-white p-4 text-sm shadow-lg dark:border-white/10 dark:bg-gray-900"
+                onMouseLeave={() => setIosHelpOpen(false)}
+              >
+                <p className="font-medium text-gray-900 dark:text-gray-100">Install on iOS</p>
+                <ol className="mt-2 flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2">
+                    <Share size={15} className="shrink-0 text-brand-600 dark:text-brand-400" /> Tap the Share button
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <SquarePlus size={15} className="shrink-0 text-brand-600 dark:text-brand-400" /> Tap "Add to Home
+                    Screen"
+                  </li>
+                </ol>
+                <button
+                  type="button"
+                  onClick={() => setIosHelpOpen(false)}
+                  className="mt-3 w-full rounded-lg bg-gray-100 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20"
+                >
+                  Got it
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="button"
