@@ -11,16 +11,20 @@ export function Profile() {
   const { showToast } = useToast()
 
   const handleToggleNotifications = async () => {
-    if (subscribed) {
-      await unsubscribe()
-      showToast('Breaking news notifications turned off', 'info')
-      return
-    }
-    const granted = await subscribe()
-    if (granted) {
-      showToast('Breaking news notifications turned on', 'success')
-    } else {
-      showToast('Notifications were blocked — enable them in your browser settings', 'error')
+    try {
+      if (subscribed) {
+        await unsubscribe()
+        showToast('Breaking news notifications turned off', 'info')
+        return
+      }
+      const granted = await subscribe()
+      if (granted) {
+        showToast('Breaking news notifications turned on', 'success')
+      } else {
+        showToast('Notifications were blocked — enable them in your browser settings', 'error')
+      }
+    } catch {
+      showToast('Something went wrong. Please try again.', 'error')
     }
   }
 

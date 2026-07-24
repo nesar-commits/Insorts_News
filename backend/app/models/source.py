@@ -21,7 +21,10 @@ class Source(Base):
     language: Mapped[str | None] = mapped_column(String(3), nullable=True)
     # City this source covers, if it's a local (not national) outlet — the
     # highest-priority match tier in "nearby news", above region/language.
-    city: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Indexed: get_distinct_cities() and every city lookup scan this column
+    # on every nearby=true request, and dynamically-created cities accumulate
+    # over time with no eviction.
+    city: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
 
     category: Mapped["Category"] = relationship(back_populates="sources")
     articles: Mapped[list["Article"]] = relationship(back_populates="source")

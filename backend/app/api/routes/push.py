@@ -21,4 +21,4 @@ def subscribe(subscription: PushSubscriptionCreate, db: Session = Depends(get_db
 
 @router.delete("/subscribe", status_code=status.HTTP_204_NO_CONTENT)
 def unsubscribe(subscription: PushSubscriptionCreate, db: Session = Depends(get_db)):
-    delete_subscription(db, subscription.endpoint)
+    delete_subscription(db, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth)

@@ -43,13 +43,21 @@ export function usePushNotifications() {
       applicationServerKey: urlBase64ToUint8Array(data.key),
     })
 
-    await apiClient.post('/push/subscribe', {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: bufferToBase64(subscription.getKey('p256dh')),
-        auth: bufferToBase64(subscription.getKey('auth')),
-      },
-    })
+    try {
+      await apiClient.post('/push/subscribe', {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: bufferToBase64(subscription.getKey('p256dh')),
+          auth: bufferToBase64(subscription.getKey('auth')),
+        },
+      })
+    } catch (err) {
+      // The browser now holds a subscription the backend never recorded —
+      // undo it rather than leaving an orphaned subscription that silently
+      // never receives anything while the UI still thinks it's inactive.
+      await subscription.unsubscribe().catch(() => {})
+      throw err
+    }
     setSubscribed(true)
     return true
   }

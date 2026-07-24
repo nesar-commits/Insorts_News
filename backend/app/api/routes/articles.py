@@ -17,7 +17,7 @@ from app.crud.article import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.article import ArticleRead, PaginatedArticles
-from app.services.dynamic_city import ensure_dynamic_city_source
+from app.services.dynamic_city import CITY_NAME_MAX_LENGTH, ensure_dynamic_city_source, should_attempt_city_creation
 from app.services.geolocation import (
     get_city_from_coords,
     get_city_from_ip,
@@ -80,6 +80,13 @@ def list_articles(
         detected_city = get_city_from_coords(lat, lon, candidate_cities) if has_gps else None
         if not detected_city:
             detected_city = get_city_from_ip(request, candidate_cities)
+        if detected_city:
+            # Truncate once, here, so every downstream use (lookups, the
+            # cooldown key, the stored row) is byte-for-byte the same string
+            # — truncating only at creation time would make a future lookup
+            # with the untruncated name never match the stored (truncated)
+            # row, silently defeating should_attempt_city_creation's cooldown.
+            detected_city = detected_city.strip()[:CITY_NAME_MAX_LENGTH] or None
 
         # Five-tier fallback, most specific first — never show an empty feed
         # just because one tier had nothing to match:
@@ -95,7 +102,7 @@ def list_articles(
         elif detected_country and region_has_articles(db, detected_country):
             matched_region = detected_country
 
-        if detected_city and not matched_city:
+        if detected_city and not matched_city and should_attempt_city_creation(detected_city):
             # First-ever visit from this city (or one that's never actually
             # gained coverage) — set up a real local feed for it in the
             # background, so it "just works" on the next visit instead of

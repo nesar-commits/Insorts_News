@@ -11,9 +11,16 @@ precacheAndRoute(self.__WB_MANIFEST)
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')))
 
 // Matches both the local dev API and the deployed Render API — both are
-// served under /api/ regardless of host.
+// served under /api/ regardless of host. Authenticated requests (anything
+// carrying a Bearer token — /users/me, /bookmarks, and the per-user
+// is_bookmarked flags on /articles) are deliberately excluded: Workbox's
+// cache key is the URL alone, so caching these would risk serving one
+// logged-in user's personal data to a different user on the same shared
+// device if a later request falls back to the stale cache entry offline.
+// Excluded requests just pass through to the browser's normal network
+// fetch, uncached — no route matches them here, so nothing intercepts them.
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
+  ({ url, request }) => url.pathname.startsWith('/api/') && !request.headers.has('Authorization'),
   new NetworkFirst({
     cacheName: 'insorts-api-cache',
     networkTimeoutSeconds: 10,
