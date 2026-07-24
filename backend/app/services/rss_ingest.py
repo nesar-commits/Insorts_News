@@ -91,7 +91,7 @@ def ensure_categories_and_sources(db: Session) -> None:
         slug_to_category[cat["slug"]] = existing
     db.commit()
 
-    for name, feed_url, site_url, category_slug, region, language in FEEDS:
+    for name, feed_url, site_url, category_slug, region, language, city in FEEDS:
         existing = db.query(Source).filter(Source.feed_url == feed_url).first()
         if not existing:
             category = slug_to_category[category_slug]
@@ -103,6 +103,7 @@ def ensure_categories_and_sources(db: Session) -> None:
                     category_id=category.id,
                     region=region,
                     language=language,
+                    city=city,
                 )
             )
     db.commit()

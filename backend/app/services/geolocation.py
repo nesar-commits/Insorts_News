@@ -27,14 +27,14 @@ def _is_public_ip(ip: str) -> bool:
 
 
 @lru_cache(maxsize=2048)
-def _lookup_country_code(ip: str) -> str | None:
+def _lookup_ip_location(ip: str) -> dict | None:
     try:
         response = httpx.get(
-            f"http://ip-api.com/json/{ip}", params={"fields": "status,countryCode"}, timeout=2.0
+            f"http://ip-api.com/json/{ip}", params={"fields": "status,countryCode,city"}, timeout=2.0
         )
         data = response.json()
         if data.get("status") == "success":
-            return data.get("countryCode")
+            return data
     except Exception:
         logger.warning("IP geolocation lookup failed for %s", ip, exc_info=True)
     return None
@@ -48,20 +48,45 @@ def get_country_code(request: Request) -> str | None:
     ip = _client_ip(request)
     if not ip or not _is_public_ip(ip):
         return None
-    return _lookup_country_code(ip)
+    data = _lookup_ip_location(ip)
+    return data.get("countryCode") if data else None
+
+
+def get_city_from_ip(request: Request, candidate_cities: list[str]) -> str | None:
+    """IP-based city guess — lower confidence than GPS (ISP-registered
+    location, not the device's actual position), used only when the browser
+    didn't grant location permission at all. Matches case-insensitively
+    against the caller-supplied list of cities we actually have coverage for.
+    """
+    ip = _client_ip(request)
+    if not ip or not _is_public_ip(ip):
+        return None
+    data = _lookup_ip_location(ip)
+    ip_city = (data or {}).get("city")
+    if not ip_city:
+        return None
+    for candidate in candidate_cities:
+        if candidate.lower() == ip_city.lower():
+            return candidate
+    return None
 
 
 @lru_cache(maxsize=2048)
-def _reverse_geocode(lat_rounded: float, lon_rounded: float) -> str | None:
+def _reverse_geocode(lat_rounded: float, lon_rounded: float) -> dict | None:
     try:
         response = httpx.get(
             "https://nominatim.openstreetmap.org/reverse",
-            params={"format": "jsonv2", "lat": lat_rounded, "lon": lon_rounded, "zoom": 3},
+            params={
+                "format": "jsonv2",
+                "lat": lat_rounded,
+                "lon": lon_rounded,
+                "zoom": 10,
+                "accept-language": "en",
+            },
             headers={"User-Agent": "InsortsNews/1.0 (nearby-news feature)"},
             timeout=3.0,
         )
-        data = response.json()
-        return data.get("address", {}).get("country_code", "").upper() or None
+        return response.json()
     except Exception:
         logger.warning("Reverse geocode failed for (%s, %s)", lat_rounded, lon_rounded, exc_info=True)
         return None
@@ -77,4 +102,27 @@ def get_country_code_from_coords(lat: float, lon: float) -> str | None:
     doesn't need more, and it keeps the reverse-geocoding cache useful across
     nearby requests instead of missing on every slightly-different reading.
     """
-    return _reverse_geocode(round(lat, 2), round(lon, 2))
+    data = _reverse_geocode(round(lat, 2), round(lon, 2))
+    if not data:
+        return None
+    code = data.get("address", {}).get("country_code")
+    return code.upper() if code else None
+
+
+def get_city_from_coords(lat: float, lon: float, candidate_cities: list[str]) -> str | None:
+    """GPS-precise city match. Nominatim's `address.city` field reports
+    inconsistent granularity across cities/countries — a query inside London
+    returns the borough ("City of Westminster"), not "London" — so this
+    checks the full `display_name` string instead, which includes the
+    broader hierarchy and reliably contains the metro-area name.
+    """
+    data = _reverse_geocode(round(lat, 2), round(lon, 2))
+    if not data:
+        return None
+    display_name = (data.get("display_name") or "").lower()
+    if not display_name:
+        return None
+    for candidate in candidate_cities:
+        if candidate.lower() in display_name:
+            return candidate
+    return None

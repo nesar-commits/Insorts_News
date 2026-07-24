@@ -59,8 +59,10 @@ export function Feed() {
   const sentinelRef = useInView(loadMore, { enabled: hasNextPage })
 
   const articles = data?.pages.flatMap((p) => p.items) ?? []
+  const matchedCity = data?.pages[0]?.city
   const matchedRegion = data?.pages[0]?.region
   const matchedLanguage = data?.pages[0]?.language
+  const matchedPlace = matchedCity || (matchedRegion && (REGION_NAMES[matchedRegion] || matchedRegion))
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,9 +73,9 @@ export function Feed() {
         onSelect={(newSlug) => navigate(newSlug === 'all' ? '/' : `/category/${newSlug}`)}
       />
 
-      {isForYou && matchedRegion && (
+      {isForYou && matchedPlace && (
         <p className="-mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-          <MapPin size={13} /> Showing news near you in {REGION_NAMES[matchedRegion] || matchedRegion}
+          <MapPin size={13} /> Showing news near you in {matchedPlace}
           {matchedLanguage && ` (${LANGUAGE_NAMES[matchedLanguage] || matchedLanguage})`}
         </p>
       )}

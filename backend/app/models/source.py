@@ -19,6 +19,9 @@ class Source(Base):
     # ISO 639-1 language code the source is actually published in — refines
     # "nearby news" by the visitor's browser language preference.
     language: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    # City this source covers, if it's a local (not national) outlet — the
+    # highest-priority match tier in "nearby news", above region/language.
+    city: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     category: Mapped["Category"] = relationship(back_populates="sources")
     articles: Mapped[list["Article"]] = relationship(back_populates="source")

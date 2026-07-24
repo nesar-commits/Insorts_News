@@ -5,16 +5,24 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_current_user
 from app.crud.article import (
+    city_and_language_has_articles,
+    city_has_articles,
     get_article,
     get_articles,
     get_bookmarked_article_ids,
+    get_distinct_cities,
     region_and_language_has_articles,
     region_has_articles,
 )
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.article import ArticleRead, PaginatedArticles
-from app.services.geolocation import get_country_code, get_country_code_from_coords
+from app.services.geolocation import (
+    get_city_from_coords,
+    get_city_from_ip,
+    get_country_code,
+    get_country_code_from_coords,
+)
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -53,25 +61,37 @@ def list_articles(
 ):
     decoded_cursor = _decode_cursor(cursor) if cursor else None
 
+    matched_city = None
     matched_region = None
     matched_language = None
     if nearby:
+        has_gps = lat is not None and lon is not None
+
         # GPS (from an explicit browser permission grant) beats IP geolocation
         # — an ISP's registered IP location is often a distant city for rural
         # connections, sometimes even the wrong country.
-        detected = get_country_code_from_coords(lat, lon) if lat is not None and lon is not None else None
-        if not detected:
-            detected = get_country_code(request)
+        detected_country = get_country_code_from_coords(lat, lon) if has_gps else None
+        if not detected_country:
+            detected_country = get_country_code(request)
 
-        if detected:
-            # Three-tier fallback: try region+language together first (most
-            # relevant), then region alone, then no filter at all — never
-            # show an empty feed just because one tier had nothing to match.
-            if lang and region_and_language_has_articles(db, detected, lang):
-                matched_region = detected
-                matched_language = lang
-            elif region_has_articles(db, detected):
-                matched_region = detected
+        candidate_cities = get_distinct_cities(db)
+        detected_city = get_city_from_coords(lat, lon, candidate_cities) if has_gps else None
+        if not detected_city:
+            detected_city = get_city_from_ip(request, candidate_cities)
+
+        # Five-tier fallback, most specific first — never show an empty feed
+        # just because one tier had nothing to match:
+        #   city+language > city > region+language > region > general
+        if detected_city and lang and city_and_language_has_articles(db, detected_city, lang):
+            matched_city = detected_city
+            matched_language = lang
+        elif detected_city and city_has_articles(db, detected_city):
+            matched_city = detected_city
+        elif detected_country and lang and region_and_language_has_articles(db, detected_country, lang):
+            matched_region = detected_country
+            matched_language = lang
+        elif detected_country and region_has_articles(db, detected_country):
+            matched_region = detected_country
 
     items, total = get_articles(
         db,
@@ -81,6 +101,7 @@ def list_articles(
         cursor=decoded_cursor,
         region=matched_region,
         language=matched_language,
+        city=matched_city,
     )
 
     bookmarked_ids = (
@@ -95,6 +116,7 @@ def list_articles(
         next_cursor=next_cursor,
         region=matched_region,
         language=matched_language,
+        city=matched_city,
     )
 
 

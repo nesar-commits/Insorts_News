@@ -26,18 +26,21 @@ def get_articles(
     cursor: tuple[datetime, int] | None = None,
     region: str | None = None,
     language: str | None = None,
+    city: str | None = None,
 ) -> tuple[list[Article], int]:
     query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
 
     if category_slug and category_slug != "all":
         query = query.join(Category).filter(Category.slug == category_slug)
 
-    if region or language:
+    if region or language or city:
         query = query.join(Source, Article.source_id == Source.id)
         if region:
             query = query.filter(Source.region == region)
         if language:
             query = query.filter(Source.language == language)
+        if city:
+            query = query.filter(Source.city == city)
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -84,6 +87,28 @@ def region_and_language_has_articles(db: Session, region: str, language: str) ->
         .first()
         is not None
     )
+
+
+def city_has_articles(db: Session, city: str) -> bool:
+    return (
+        db.query(Article.id).join(Source, Article.source_id == Source.id).filter(Source.city == city).first()
+        is not None
+    )
+
+
+def city_and_language_has_articles(db: Session, city: str, language: str) -> bool:
+    return (
+        db.query(Article.id)
+        .join(Source, Article.source_id == Source.id)
+        .filter(Source.city == city, Source.language == language)
+        .first()
+        is not None
+    )
+
+
+def get_distinct_cities(db: Session) -> list[str]:
+    rows = db.query(Source.city).filter(Source.city.isnot(None)).distinct().all()
+    return [row[0] for row in rows]
 
 
 def get_article(db: Session, article_id: int) -> Article | None:

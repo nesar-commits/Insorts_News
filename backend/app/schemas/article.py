@@ -48,3 +48,6 @@ class PaginatedArticles(BaseModel):
     # browser language preference — None means either no region match, or a
     # region match that fell back to all languages within it.
     language: str | None = None
+    # Set only when the visitor's detected location matched a specifically
+    # covered city (highest-priority match tier, above region/language).
+    city: str | None = None
