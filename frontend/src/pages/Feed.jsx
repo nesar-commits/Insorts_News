@@ -1,7 +1,7 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Newspaper, MapPin } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Newspaper, MapPin, RefreshCw } from 'lucide-react'
 import { CategoryTabs } from '../components/CategoryTabs'
 import { HeroCarousel } from '../components/HeroCarousel'
 import { ArticleCard } from '../components/ArticleCard'
@@ -34,9 +34,11 @@ const LANGUAGE_NAMES = {
 export function Feed() {
   const { slug = 'all' } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const isForYou = slug === 'all'
   const coords = useGeolocation(isForYou)
   const lang = isForYou ? getBrowserLanguage() : undefined
+  const [refreshing, setRefreshing] = useState(false)
 
   const { data: trending } = useQuery({
     queryKey: ['trending'],
@@ -58,6 +60,19 @@ export function Feed() {
 
   const sentinelRef = useInView(loadMore, { enabled: hasNextPage })
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      // Reset rather than refetch — refetch would re-fetch every already
+      // loaded page in place, but a "refresh" should collapse back down to
+      // a fresh first page, same as a first visit.
+      await queryClient.resetQueries({ queryKey: ['articles'] })
+      if (isForYou) await queryClient.resetQueries({ queryKey: ['trending'] })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const articles = data?.pages.flatMap((p) => p.items) ?? []
   const matchedCity = data?.pages[0]?.city
   const matchedRegion = data?.pages[0]?.region
@@ -68,10 +83,23 @@ export function Feed() {
     <div className="flex flex-col gap-6">
       {isForYou && trending?.length > 0 && <HeroCarousel articles={trending} />}
 
-      <CategoryTabs
-        activeSlug={slug}
-        onSelect={(newSlug) => navigate(newSlug === 'all' ? '/' : `/category/${newSlug}`)}
-      />
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <CategoryTabs
+            activeSlug={slug}
+            onSelect={(newSlug) => navigate(newSlug === 'all' ? '/' : `/category/${newSlug}`)}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-label="Refresh"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 dark:border-white/10 dark:text-gray-300 dark:hover:border-brand-500"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+      </div>
 
       {isForYou && matchedPlace && (
         <p className="-mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
