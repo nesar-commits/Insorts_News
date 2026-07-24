@@ -8,7 +8,9 @@ pydantic-settings>=2.10.1
 email-validator>=2.3.0
 python-jose[cryptography]>=3.5.0
 passlib>=1.7.4
-bcrypt>=4.3.0
+# passlib 1.7.4 reads bcrypt.__about__.__version__ for backend detection, which
+# bcrypt removed in 4.1.0 — that combo crashes on every hash/verify call.
+bcrypt>=4.0.1,<4.1.0
 feedparser>=6.0.11
 apscheduler>=3.11.0
 python-dotenv>=1.1.1
