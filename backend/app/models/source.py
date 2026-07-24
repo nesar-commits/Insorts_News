@@ -16,6 +16,9 @@ class Source(Base):
     # ISO 3166-1 alpha-2 country code this source primarily covers, or None
     # if it isn't tied to one — powers "nearby news" (see geolocation.py).
     region: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # ISO 639-1 language code the source is actually published in — refines
+    # "nearby news" by the visitor's browser language preference.
+    language: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     category: Mapped["Category"] = relationship(back_populates="sources")
     articles: Mapped[list["Article"]] = relationship(back_populates="source")

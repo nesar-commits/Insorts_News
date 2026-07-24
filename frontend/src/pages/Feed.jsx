@@ -11,15 +11,32 @@ import { Spinner } from '../components/Spinner'
 import { useInfiniteArticles } from '../hooks/useInfiniteArticles'
 import { useInView } from '../hooks/useInView'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { getBrowserLanguage } from '../utils/browserLanguage'
 import { fetchTrendingArticles } from '../api/articles'
 
-const REGION_NAMES = { GB: 'the UK', US: 'the US', QA: 'Qatar' }
+const REGION_NAMES = { GB: 'the UK', US: 'the US', QA: 'Qatar', IN: 'India' }
+const LANGUAGE_NAMES = {
+  hi: 'Hindi',
+  bn: 'Bengali',
+  ta: 'Tamil',
+  te: 'Telugu',
+  mr: 'Marathi',
+  gu: 'Gujarati',
+  pa: 'Punjabi',
+  ur: 'Urdu',
+  ne: 'Nepali',
+  kn: 'Kannada',
+  ml: 'Malayalam',
+  or: 'Odia',
+  en: 'English',
+}
 
 export function Feed() {
   const { slug = 'all' } = useParams()
   const navigate = useNavigate()
   const isForYou = slug === 'all'
   const coords = useGeolocation(isForYou)
+  const lang = isForYou ? getBrowserLanguage() : undefined
 
   const { data: trending } = useQuery({
     queryKey: ['trending'],
@@ -32,6 +49,7 @@ export function Feed() {
     category: slug,
     nearby: isForYou,
     coords: isForYou ? coords : undefined,
+    lang,
   })
 
   const loadMore = useCallback(() => {
@@ -42,6 +60,7 @@ export function Feed() {
 
   const articles = data?.pages.flatMap((p) => p.items) ?? []
   const matchedRegion = data?.pages[0]?.region
+  const matchedLanguage = data?.pages[0]?.language
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,6 +74,7 @@ export function Feed() {
       {isForYou && matchedRegion && (
         <p className="-mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
           <MapPin size={13} /> Showing news near you in {REGION_NAMES[matchedRegion] || matchedRegion}
+          {matchedLanguage && ` (${LANGUAGE_NAMES[matchedLanguage] || matchedLanguage})`}
         </p>
       )}
 

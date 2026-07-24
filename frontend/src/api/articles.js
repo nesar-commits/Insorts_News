@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 
-export async function fetchArticles({ cursor, pageSize = 12, category, search, nearby, coords } = {}) {
+export async function fetchArticles({ cursor, pageSize = 12, category, search, nearby, coords, lang } = {}) {
   const { data } = await apiClient.get('/articles', {
     params: {
       cursor,
@@ -10,6 +10,7 @@ export async function fetchArticles({ cursor, pageSize = 12, category, search, n
       nearby: nearby || undefined,
       lat: coords?.lat,
       lon: coords?.lon,
+      lang: lang || undefined,
     },
   })
   return data

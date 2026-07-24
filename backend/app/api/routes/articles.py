@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_current_user
-from app.crud.article import get_article, get_articles, get_bookmarked_article_ids, region_has_articles
+from app.crud.article import (
+    get_article,
+    get_articles,
+    get_bookmarked_article_ids,
+    region_and_language_has_articles,
+    region_has_articles,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.article import ArticleRead, PaginatedArticles
@@ -41,12 +47,14 @@ def list_articles(
     nearby: bool = Query(False, description="Prefer articles from the visitor's detected country"),
     lat: float | None = Query(None, ge=-90, le=90, description="Browser-supplied GPS latitude"),
     lon: float | None = Query(None, ge=-180, le=180, description="Browser-supplied GPS longitude"),
+    lang: str | None = Query(None, min_length=2, max_length=3, description="Visitor's preferred language code"),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
     decoded_cursor = _decode_cursor(cursor) if cursor else None
 
     matched_region = None
+    matched_language = None
     if nearby:
         # GPS (from an explicit browser permission grant) beats IP geolocation
         # — an ISP's registered IP location is often a distant city for rural
@@ -54,8 +62,16 @@ def list_articles(
         detected = get_country_code_from_coords(lat, lon) if lat is not None and lon is not None else None
         if not detected:
             detected = get_country_code(request)
-        if detected and region_has_articles(db, detected):
-            matched_region = detected
+
+        if detected:
+            # Three-tier fallback: try region+language together first (most
+            # relevant), then region alone, then no filter at all — never
+            # show an empty feed just because one tier had nothing to match.
+            if lang and region_and_language_has_articles(db, detected, lang):
+                matched_region = detected
+                matched_language = lang
+            elif region_has_articles(db, detected):
+                matched_region = detected
 
     items, total = get_articles(
         db,
@@ -64,6 +80,7 @@ def list_articles(
         search=search,
         cursor=decoded_cursor,
         region=matched_region,
+        language=matched_language,
     )
 
     bookmarked_ids = (
@@ -77,6 +94,7 @@ def list_articles(
         total=total,
         next_cursor=next_cursor,
         region=matched_region,
+        language=matched_language,
     )
 
 

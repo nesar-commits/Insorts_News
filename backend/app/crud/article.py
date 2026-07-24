@@ -25,14 +25,19 @@ def get_articles(
     search: str | None = None,
     cursor: tuple[datetime, int] | None = None,
     region: str | None = None,
+    language: str | None = None,
 ) -> tuple[list[Article], int]:
     query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
 
     if category_slug and category_slug != "all":
         query = query.join(Category).filter(Category.slug == category_slug)
 
-    if region:
-        query = query.join(Source, Article.source_id == Source.id).filter(Source.region == region)
+    if region or language:
+        query = query.join(Source, Article.source_id == Source.id)
+        if region:
+            query = query.filter(Source.region == region)
+        if language:
+            query = query.filter(Source.language == language)
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -66,6 +71,16 @@ def region_has_articles(db: Session, region: str) -> bool:
         db.query(Article.id)
         .join(Source, Article.source_id == Source.id)
         .filter(Source.region == region)
+        .first()
+        is not None
+    )
+
+
+def region_and_language_has_articles(db: Session, region: str, language: str) -> bool:
+    return (
+        db.query(Article.id)
+        .join(Source, Article.source_id == Source.id)
+        .filter(Source.region == region, Source.language == language)
         .first()
         is not None
     )

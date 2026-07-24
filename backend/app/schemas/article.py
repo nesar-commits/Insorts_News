@@ -44,3 +44,7 @@ class PaginatedArticles(BaseModel):
     # detected region — None means this is the general/unfiltered feed,
     # either because nearby wasn't requested or no local news was found.
     region: str | None = None
+    # Set only when the region match was further refined by the visitor's
+    # browser language preference — None means either no region match, or a
+    # region match that fell back to all languages within it.
+    language: str | None = None
