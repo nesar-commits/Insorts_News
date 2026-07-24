@@ -36,7 +36,7 @@ export function Feed() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isForYou = slug === 'all'
-  const coords = useGeolocation(isForYou)
+  const { coords, denied: locationDenied } = useGeolocation(isForYou)
   const lang = isForYou ? getBrowserLanguage() : undefined
   const [refreshing, setRefreshing] = useState(false)
 
@@ -49,7 +49,10 @@ export function Feed() {
 
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteArticles({
     category: slug,
-    nearby: isForYou,
+    // A user who explicitly denies location permission gets the general
+    // feed, not a quiet IP-based location guess — nearby=false skips the
+    // backend's location matching (and its IP fallback) entirely.
+    nearby: isForYou && !locationDenied,
     coords: isForYou ? coords : undefined,
     lang,
   })

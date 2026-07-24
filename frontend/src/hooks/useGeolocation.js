@@ -2,25 +2,33 @@ import { useEffect, useState } from 'react'
 
 /** GPS-precise location for "nearby news" — the browser only prompts once;
  * after that it silently succeeds (already granted) or fails (denied),
- * so it's safe to request on every "For You" tab visit. When unavailable
- * or denied, coords stays null and the backend falls back to IP-based
- * detection on its own.
+ * so it's safe to request on every "For You" tab visit. `denied` is only
+ * true for an explicit PERMISSION_DENIED (or no geolocation support at
+ * all) — the caller uses that to show general news instead of quietly
+ * falling back to IP-based location, since the user actively said no.
+ * A transient failure (timeout, position unavailable) leaves `denied`
+ * false so the backend's IP fallback still applies.
  */
 export function useGeolocation(enabled) {
-  const [coords, setCoords] = useState(null)
+  const [state, setState] = useState({ coords: null, denied: false })
 
   useEffect(() => {
-    if (!enabled || !navigator.geolocation) return
+    if (!enabled) return
+
+    if (!navigator.geolocation) {
+      setState({ coords: null, denied: true })
+      return
+    }
 
     let cancelled = false
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return
-        setCoords({ lat: position.coords.latitude, lon: position.coords.longitude })
+        setState({ coords: { lat: position.coords.latitude, lon: position.coords.longitude }, denied: false })
       },
-      () => {
-        // Permission denied, timed out, or position unavailable — leave
-        // coords as null so the caller falls back to IP-based detection.
+      (error) => {
+        if (cancelled) return
+        setState({ coords: null, denied: error.code === error.PERMISSION_DENIED })
       },
       { maximumAge: 1000 * 60 * 10, timeout: 5000 }
     )
@@ -30,5 +38,5 @@ export function useGeolocation(enabled) {
     }
   }, [enabled])
 
-  return coords
+  return state
 }
