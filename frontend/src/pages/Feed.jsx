@@ -36,7 +36,7 @@ export function Feed() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isForYou = slug === 'all'
-  const { coords, denied: locationDenied } = useGeolocation(isForYou)
+  const { coords, denied: locationDenied, recheck: recheckLocation } = useGeolocation(isForYou)
   const lang = isForYou ? getBrowserLanguage() : undefined
   const [refreshing, setRefreshing] = useState(false)
 
@@ -66,6 +66,10 @@ export function Feed() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
+      // Re-request location permission first — the user may have granted
+      // then later revoked (or vice versa) since the tab was last visited,
+      // and that state otherwise only updates on a full remount.
+      if (isForYou) recheckLocation()
       // Reset rather than refetch — refetch would re-fetch every already
       // loaded page in place, but a "refresh" should collapse back down to
       // a fresh first page, same as a first visit.

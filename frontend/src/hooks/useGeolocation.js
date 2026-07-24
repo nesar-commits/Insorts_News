@@ -11,6 +11,10 @@ import { useEffect, useState } from 'react'
  */
 export function useGeolocation(enabled) {
   const [state, setState] = useState({ coords: null, denied: false })
+  // Bumped by recheck() to force the effect below to re-run and re-request
+  // permission — otherwise a permission change made after the initial grant
+  // (or denial) would never be picked up until the app fully remounts.
+  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
     if (!enabled) return
@@ -30,13 +34,15 @@ export function useGeolocation(enabled) {
         if (cancelled) return
         setState({ coords: null, denied: error.code === error.PERMISSION_DENIED })
       },
-      { maximumAge: 1000 * 60 * 10, timeout: 5000 }
+      { maximumAge: 0, timeout: 5000 }
     )
 
     return () => {
       cancelled = true
     }
-  }, [enabled])
+  }, [enabled, nonce])
 
-  return state
+  const recheck = () => setNonce((n) => n + 1)
+
+  return { ...state, recheck }
 }
