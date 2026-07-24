@@ -22,7 +22,12 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60,
       refetchOnWindowFocus: false,
-      retry: 1,
+      // The Render free-tier backend spins down after ~15 min idle; the
+      // request that wakes it can take 20-50s to actually respond. A single
+      // quick retry (the old default) gives up before that finishes — retry
+      // longer so a cold start self-heals instead of showing an error.
+      retry: 5,
+      retryDelay: (attemptIndex) => Math.min(3000 * (attemptIndex + 1), 15000),
     },
   },
 })
