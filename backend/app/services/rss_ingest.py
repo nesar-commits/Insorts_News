@@ -194,7 +194,7 @@ def _is_recent_duplicate(db: Session, source: Source, title: str, published_at: 
     )
 
 
-def fetch_and_store_source(db: Session, source: Source) -> list[NewArticle]:
+def fetch_and_store_source(db: Session, source: Source, fetch_missing_images: bool = True) -> list[NewArticle]:
     parsed = feedparser.parse(source.feed_url)
     new_articles: list[NewArticle] = []
     seen_urls: set[str] = set()
@@ -219,7 +219,13 @@ def fetch_and_store_source(db: Session, source: Source) -> list[NewArticle]:
             continue
         seen_titles_this_batch.add(title)
 
-        image_url = _extract_image(entry) or _fetch_og_image(url)
+        image_url = _extract_image(entry)
+        if not image_url and fetch_missing_images:
+            # Skipped for on-demand dynamic city sources (see dynamic_city.py)
+            # — scraping each article's page for an og:image, one HTTP
+            # request at a time, would make a first-time visit to a new city
+            # take way too long; the feed's own image (if any) is enough.
+            image_url = _fetch_og_image(url)
         if not _is_valid_image_url(image_url):
             image_url = None
 

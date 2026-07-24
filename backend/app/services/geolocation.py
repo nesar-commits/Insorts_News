@@ -55,8 +55,13 @@ def get_country_code(request: Request) -> str | None:
 def get_city_from_ip(request: Request, candidate_cities: list[str]) -> str | None:
     """IP-based city guess — lower confidence than GPS (ISP-registered
     location, not the device's actual position), used only when the browser
-    didn't grant location permission at all. Matches case-insensitively
-    against the caller-supplied list of cities we actually have coverage for.
+    didn't grant location permission at all.
+
+    Prefers an exact match against `candidate_cities` (our verified, curated
+    sources) for correct canonical naming, but falls back to whatever city
+    name the IP lookup itself reports — this is what lets a location with no
+    curated source still get real local news, via the dynamic city feed (see
+    app/services/dynamic_city.py), instead of being limited to a fixed list.
     """
     ip = _client_ip(request)
     if not ip or not _is_public_ip(ip):
@@ -68,7 +73,7 @@ def get_city_from_ip(request: Request, candidate_cities: list[str]) -> str | Non
     for candidate in candidate_cities:
         if candidate.lower() == ip_city.lower():
             return candidate
-    return None
+    return ip_city
 
 
 @lru_cache(maxsize=2048)
@@ -110,19 +115,27 @@ def get_country_code_from_coords(lat: float, lon: float) -> str | None:
 
 
 def get_city_from_coords(lat: float, lon: float, candidate_cities: list[str]) -> str | None:
-    """GPS-precise city match. Nominatim's `address.city` field reports
+    """GPS-precise city detection — works for any location on Earth, not
+    just a curated list.
+
+    First checks the full `display_name` string against `candidate_cities`
+    (our verified, curated sources): Nominatim's `address.city` field reports
     inconsistent granularity across cities/countries — a query inside London
-    returns the borough ("City of Westminster"), not "London" — so this
-    checks the full `display_name` string instead, which includes the
-    broader hierarchy and reliably contains the metro-area name.
+    returns the borough ("City of Westminster"), not "London" — so matching
+    against the broader display_name hierarchy gets the canonical name right
+    for cities we already have a real local source for.
+
+    Falls back to whatever raw city/town name Nominatim reports for anywhere
+    else — this is what lets a location with no curated source still get
+    real local news, via the dynamic city feed (see dynamic_city.py), rather
+    than being limited to the curated list.
     """
     data = _reverse_geocode(round(lat, 2), round(lon, 2))
     if not data:
         return None
     display_name = (data.get("display_name") or "").lower()
-    if not display_name:
-        return None
     for candidate in candidate_cities:
-        if candidate.lower() in display_name:
+        if display_name and candidate.lower() in display_name:
             return candidate
-    return None
+    address = data.get("address", {})
+    return address.get("city") or address.get("town") or address.get("municipality") or address.get("city_district")

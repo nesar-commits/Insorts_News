@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_current_user
@@ -17,6 +17,7 @@ from app.crud.article import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.article import ArticleRead, PaginatedArticles
+from app.services.dynamic_city import ensure_dynamic_city_source
 from app.services.geolocation import (
     get_city_from_coords,
     get_city_from_ip,
@@ -48,6 +49,7 @@ def _encode_cursor(published_at: datetime, article_id: int) -> str:
 @router.get("", response_model=PaginatedArticles)
 def list_articles(
     request: Request,
+    background_tasks: BackgroundTasks,
     cursor: str | None = Query(None, description="Opaque cursor from a previous response's next_cursor"),
     page_size: int = Query(20, ge=1, le=50),
     category: str | None = Query(None, description="Category slug, or omit for all"),
@@ -92,6 +94,14 @@ def list_articles(
             matched_language = lang
         elif detected_country and region_has_articles(db, detected_country):
             matched_region = detected_country
+
+        if detected_city and not matched_city:
+            # First-ever visit from this city (or one that's never actually
+            # gained coverage) — set up a real local feed for it in the
+            # background, so it "just works" on the next visit instead of
+            # making this one wait on a live fetch. This request still falls
+            # through to the region/general tiers above like normal.
+            background_tasks.add_task(ensure_dynamic_city_source, detected_city, detected_country)
 
     items, total = get_articles(
         db,

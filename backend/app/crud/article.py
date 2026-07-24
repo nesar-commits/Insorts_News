@@ -40,7 +40,7 @@ def get_articles(
         if language:
             query = query.filter(Source.language == language)
         if city:
-            query = query.filter(Source.city == city)
+            query = query.filter(func.lower(Source.city) == city.lower())
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -91,7 +91,10 @@ def region_and_language_has_articles(db: Session, region: str, language: str) ->
 
 def city_has_articles(db: Session, city: str) -> bool:
     return (
-        db.query(Article.id).join(Source, Article.source_id == Source.id).filter(Source.city == city).first()
+        db.query(Article.id)
+        .join(Source, Article.source_id == Source.id)
+        .filter(func.lower(Source.city) == city.lower())
+        .first()
         is not None
     )
 
@@ -100,7 +103,7 @@ def city_and_language_has_articles(db: Session, city: str, language: str) -> boo
     return (
         db.query(Article.id)
         .join(Source, Article.source_id == Source.id)
-        .filter(Source.city == city, Source.language == language)
+        .filter(func.lower(Source.city) == city.lower(), Source.language == language)
         .first()
         is not None
     )
