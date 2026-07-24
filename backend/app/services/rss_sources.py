@@ -34,4 +34,7 @@ FEEDS = [
     ("BBC Health", "http://feeds.bbci.co.uk/news/health/rss.xml", "https://www.bbc.com/news/health", "health", "GB"),
     ("BBC Science", "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml", "https://www.bbc.com/news/science_and_environment", "science", "GB"),
     ("NASA", "https://www.nasa.gov/feed/", "https://www.nasa.gov", "science", "US"),
+    ("The Hindu", "https://www.thehindu.com/news/national/feeder/default.rss", "https://www.thehindu.com", "general", "IN"),
+    ("Times of India", "https://timesofindia.indiatimes.com/rssfeedstopstories.cms", "https://timesofindia.indiatimes.com", "general", "IN"),
+    ("Hindustan Times", "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml", "https://www.hindustantimes.com", "general", "IN"),
 ]
