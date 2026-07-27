@@ -36,7 +36,12 @@ export function Feed() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isForYou = slug === 'all'
-  const { coords, denied: locationDenied, recheck: recheckLocation } = useGeolocation(isForYou)
+  const {
+    coords,
+    denied: locationDenied,
+    loading: locationLoading,
+    recheck: recheckLocation,
+  } = useGeolocation(isForYou)
   const lang = isForYou ? getBrowserLanguage() : undefined
   const [refreshing, setRefreshing] = useState(false)
 
@@ -108,7 +113,13 @@ export function Feed() {
         </button>
       </div>
 
-      {isForYou && matchedPlace && (
+      {isForYou && locationLoading && (
+        <p className="-mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          <MapPin size={13} className="animate-pulse" /> Detecting your location&hellip;
+        </p>
+      )}
+
+      {isForYou && !locationLoading && matchedPlace && (
         <p className="-mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
           <MapPin size={13} /> Showing news near you in {matchedPlace}
           {matchedLanguage && ` (${LANGUAGE_NAMES[matchedLanguage] || matchedLanguage})`}

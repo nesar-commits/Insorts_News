@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
  * false so the backend's IP fallback still applies.
  */
 export function useGeolocation(enabled) {
-  const [state, setState] = useState({ coords: null, denied: false })
+  const [state, setState] = useState({ coords: null, denied: false, loading: enabled })
   // Bumped by recheck() to force the effect below to re-run and re-request
   // permission — otherwise a permission change made after the initial grant
   // (or denial) would never be picked up until the app fully remounts.
@@ -20,21 +20,33 @@ export function useGeolocation(enabled) {
     if (!enabled) return
 
     if (!navigator.geolocation) {
-      setState({ coords: null, denied: true })
+      setState({ coords: null, denied: true, loading: false })
       return
     }
+
+    setState((s) => ({ ...s, loading: true }))
 
     let cancelled = false
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return
-        setState({ coords: { lat: position.coords.latitude, lon: position.coords.longitude }, denied: false })
+        setState({
+          coords: { lat: position.coords.latitude, lon: position.coords.longitude },
+          denied: false,
+          loading: false,
+        })
       },
       (error) => {
         if (cancelled) return
-        setState({ coords: null, denied: error.code === error.PERMISSION_DENIED })
+        setState({ coords: null, denied: error.code === error.PERMISSION_DENIED, loading: false })
       },
-      { maximumAge: 0, timeout: 5000 }
+      // High accuracy forces the device's GPS chip rather than coarse
+      // WiFi/cell-tower positioning — same tradeoff delivery apps make for
+      // exact location. That fix can take longer to acquire (especially
+      // indoors), so the timeout is generous; maximumAge allows reusing a
+      // very recent fix instead of forcing a brand-new GPS read on every
+      // "For You" visit within the same minute.
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
 
     return () => {
