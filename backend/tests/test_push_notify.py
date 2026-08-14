@@ -23,7 +23,7 @@ def vapid_keys(monkeypatch):
 
 def test_returns_zero_and_skips_when_vapid_not_configured(monkeypatch):
     monkeypatch.setattr(push_notify.settings, "VAPID_PRIVATE_KEY", "")
-    monkeypatch.setattr(push_notify, "get_all_subscriptions", lambda db: [FakeSubscription(1)])
+    monkeypatch.setattr(push_notify, "get_subscriptions_for_category", lambda db, category_id=None: [FakeSubscription(1)])
 
     sent = push_notify.send_push_to_all(MagicMock(), "title", "body")
 
@@ -32,7 +32,7 @@ def test_returns_zero_and_skips_when_vapid_not_configured(monkeypatch):
 
 def test_a_transport_error_does_not_abort_the_rest_of_the_batch(monkeypatch):
     subs = [FakeSubscription(1), FakeSubscription(2), FakeSubscription(3)]
-    monkeypatch.setattr(push_notify, "get_all_subscriptions", lambda db: subs)
+    monkeypatch.setattr(push_notify, "get_subscriptions_for_category", lambda db, category_id=None: subs)
 
     calls = []
 
@@ -53,7 +53,7 @@ def test_a_transport_error_does_not_abort_the_rest_of_the_batch(monkeypatch):
 
 def test_a_404_response_prunes_the_subscription(monkeypatch):
     sub = FakeSubscription(1)
-    monkeypatch.setattr(push_notify, "get_all_subscriptions", lambda db: [sub])
+    monkeypatch.setattr(push_notify, "get_subscriptions_for_category", lambda db, category_id=None: [sub])
     pruned = []
     monkeypatch.setattr(push_notify, "delete_subscription_by_id", lambda db, sub_id: pruned.append(sub_id))
 
@@ -72,7 +72,7 @@ def test_a_404_response_prunes_the_subscription(monkeypatch):
 
 def test_all_subscribers_reached_when_none_fail(monkeypatch):
     subs = [FakeSubscription(1), FakeSubscription(2)]
-    monkeypatch.setattr(push_notify, "get_all_subscriptions", lambda db: subs)
+    monkeypatch.setattr(push_notify, "get_subscriptions_for_category", lambda db, category_id=None: subs)
     monkeypatch.setattr(push_notify, "webpush", lambda **kwargs: None)
 
     sent = push_notify.send_push_to_all(MagicMock(), "title", "body")

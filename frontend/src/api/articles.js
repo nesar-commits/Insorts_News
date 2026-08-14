@@ -26,7 +26,16 @@ export async function fetchArticle(id) {
   return data
 }
 
+export async function recordArticleView(id) {
+  await apiClient.post(`/articles/${id}/view`)
+}
+
 export async function fetchCategories() {
   const { data } = await apiClient.get('/categories')
+  return data
+}
+
+export async function fetchSources() {
+  const { data } = await apiClient.get('/sources')
   return data
 }

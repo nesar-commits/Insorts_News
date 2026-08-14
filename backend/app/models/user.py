@@ -18,6 +18,10 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     bookmarks: Mapped[list["Bookmark"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    muted_sources: Mapped[list["MutedSource"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    muted_categories: Mapped[list["MutedCategory"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 # A plain unique constraint on `username` is case-sensitive, but

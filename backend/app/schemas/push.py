@@ -13,6 +13,10 @@ class PushKeys(BaseModel):
 class PushSubscriptionCreate(BaseModel):
     endpoint: str = Field(max_length=1000)
     keys: PushKeys
+    # None (the default, if the client never sends this field) means "every
+    # category" — an empty list would instead mean "opted out of all
+    # breaking-news categories", which is a real but different preference.
+    category_ids: list[int] | None = None
 
     @field_validator("endpoint")
     @classmethod
@@ -51,3 +55,12 @@ class PushSubscriptionCreate(BaseModel):
 
 class VapidPublicKey(BaseModel):
     key: str
+
+
+class PushCategoryUpdate(BaseModel):
+    # No SSRF-style validation here (unlike PushSubscriptionCreate) — this
+    # never makes an outbound request itself, it only looks up an existing
+    # row by (endpoint, keys) as proof of ownership, same as unsubscribe.
+    endpoint: str = Field(max_length=1000)
+    keys: PushKeys
+    category_ids: list[int]

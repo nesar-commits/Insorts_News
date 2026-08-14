@@ -19,3 +19,18 @@ export async function fetchCurrentUser() {
   const { data } = await apiClient.get('/users/me')
   return data
 }
+
+export async function updateProfile({ username, fullName } = {}) {
+  const { data } = await apiClient.patch('/users/me', {
+    username: username || undefined,
+    full_name: fullName === undefined ? undefined : fullName || null,
+  })
+  return data
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  await apiClient.post('/users/me/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  })
+}

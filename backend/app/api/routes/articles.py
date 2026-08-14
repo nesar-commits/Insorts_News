@@ -11,9 +11,12 @@ from app.crud.article import (
     get_articles,
     get_bookmarked_article_ids,
     get_distinct_cities,
+    get_trending_articles,
+    increment_view_count,
     region_and_language_has_articles,
     region_has_articles,
 )
+from app.crud.mute import get_muted_category_ids, get_muted_source_ids
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.article import ArticleRead, PaginatedArticles
@@ -110,6 +113,9 @@ def list_articles(
             # through to the region/general tiers above like normal.
             background_tasks.add_task(ensure_dynamic_city_source, detected_city, detected_country)
 
+    excluded_source_ids = get_muted_source_ids(db, current_user.id) if current_user else None
+    excluded_category_ids = get_muted_category_ids(db, current_user.id) if current_user else None
+
     items, total = get_articles(
         db,
         page_size=page_size,
@@ -119,6 +125,8 @@ def list_articles(
         region=matched_region,
         language=matched_language,
         city=matched_city,
+        excluded_source_ids=excluded_source_ids,
+        excluded_category_ids=excluded_category_ids,
     )
 
     bookmarked_ids = (
@@ -143,7 +151,15 @@ def trending_articles(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    items, _ = get_articles(db, page=1, page_size=limit)
+    excluded_source_ids = get_muted_source_ids(db, current_user.id) if current_user else None
+    excluded_category_ids = get_muted_category_ids(db, current_user.id) if current_user else None
+
+    items = get_trending_articles(
+        db,
+        limit=limit,
+        excluded_source_ids=excluded_source_ids,
+        excluded_category_ids=excluded_category_ids,
+    )
     bookmarked_ids = (
         get_bookmarked_article_ids(db, current_user.id, [a.id for a in items]) if current_user else set()
     )
@@ -162,3 +178,15 @@ def read_article(
 
     bookmarked_ids = get_bookmarked_article_ids(db, current_user.id, [article.id]) if current_user else set()
     return _to_article_read(article, bookmarked_ids)
+
+
+@router.post("/{article_id}/view", status_code=204)
+def record_article_view(article_id: int, db: Session = Depends(get_db)):
+    """Fired once when a reader actually opens an article's detail page —
+    the only popularity signal /trending has beyond publish recency.
+    Anonymous and unauthenticated by design, same as reading the article
+    itself; not rate-limited, consistent with the rest of this app's
+    unauthenticated-endpoint threat model (see geolocation/dynamic-city).
+    """
+    if not increment_view_count(db, article_id):
+        raise HTTPException(status_code=404, detail="Article not found")

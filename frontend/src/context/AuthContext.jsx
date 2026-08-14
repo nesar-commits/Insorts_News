@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { fetchCurrentUser, loginUser, registerUser } from '../api/auth'
+import { fetchCurrentUser, loginUser, registerUser, updateProfile as updateProfileRequest } from '../api/auth'
 import { SESSION_EXPIRED_EVENT } from '../api/client'
 import { useToast } from './ToastContext'
 
@@ -73,6 +73,13 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  const updateProfile = async ({ username, fullName }) => {
+    const freshUser = await updateProfileRequest({ username, fullName })
+    setUser(freshUser)
+    localStorage.setItem('insorts_user', JSON.stringify(freshUser))
+    return freshUser
+  }
+
   const logout = () => {
     localStorage.removeItem('insorts_token')
     localStorage.removeItem('insorts_user')
@@ -84,7 +91,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = useMemo(
-    () => ({ user, loading, isAuthenticated: !!user, login, register, logout }),
+    () => ({ user, loading, isAuthenticated: !!user, login, register, logout, updateProfile }),
     [user, loading]
   )
 

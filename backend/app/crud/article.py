@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, tuple_
 from sqlalchemy.orm import Session, joinedload
@@ -8,6 +8,11 @@ from app.models.bookmark import Bookmark
 from app.models.category import Category
 from app.models.source import Source
 
+# How far back /trending looks for its view-count signal — old enough that
+# a single quiet hour doesn't starve it, recent enough that "trending" still
+# means something distinct from "most-viewed ever".
+TRENDING_WINDOW_HOURS = 48
+
 
 def get_categories(db: Session) -> list[Category]:
     return db.query(Category).order_by(Category.name).all()
@@ -15,6 +20,18 @@ def get_categories(db: Session) -> list[Category]:
 
 def get_category_by_slug(db: Session, slug: str) -> Category | None:
     return db.query(Category).filter(Category.slug == slug).first()
+
+
+def get_category(db: Session, category_id: int) -> Category | None:
+    return db.query(Category).filter(Category.id == category_id).first()
+
+
+def get_sources(db: Session) -> list[Source]:
+    return db.query(Source).order_by(Source.name).all()
+
+
+def get_source(db: Session, source_id: int) -> Source | None:
+    return db.query(Source).filter(Source.id == source_id).first()
 
 
 def get_articles(
@@ -27,6 +44,8 @@ def get_articles(
     region: str | None = None,
     language: str | None = None,
     city: str | None = None,
+    excluded_source_ids: set[int] | None = None,
+    excluded_category_ids: set[int] | None = None,
 ) -> tuple[list[Article], int]:
     query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
 
@@ -41,6 +60,11 @@ def get_articles(
             query = query.filter(Source.language == language)
         if city:
             query = query.filter(func.lower(Source.city) == city.lower())
+
+    if excluded_source_ids:
+        query = query.filter(Article.source_id.notin_(excluded_source_ids))
+    if excluded_category_ids:
+        query = query.filter(Article.category_id.notin_(excluded_category_ids))
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -121,6 +145,59 @@ def get_article(db: Session, article_id: int) -> Article | None:
         .filter(Article.id == article_id)
         .first()
     )
+
+
+def increment_view_count(db: Session, article_id: int) -> bool:
+    """Returns False if the article doesn't exist, so the route can 404
+    instead of silently no-opping. A bare UPDATE (not a fetch-then-save)
+    avoids a race where two concurrent views on the same article both read
+    the same starting count and one increment gets lost.
+    """
+    result = db.query(Article).filter(Article.id == article_id).update(
+        {Article.view_count: Article.view_count + 1}, synchronize_session=False
+    )
+    db.commit()
+    return result > 0
+
+
+def get_trending_articles(
+    db: Session,
+    limit: int = 10,
+    excluded_source_ids: set[int] | None = None,
+    excluded_category_ids: set[int] | None = None,
+) -> list[Article]:
+    """Ranks by actual view_count within a recent window, not just publish
+    recency — falls back to filling any remaining slots with the newest
+    articles so a quiet window (e.g. right after deploy, before any views
+    have landed) never shows fewer than `limit` items.
+    """
+
+    def _base_query():
+        query = db.query(Article).options(joinedload(Article.source), joinedload(Article.category))
+        if excluded_source_ids:
+            query = query.filter(Article.source_id.notin_(excluded_source_ids))
+        if excluded_category_ids:
+            query = query.filter(Article.category_id.notin_(excluded_category_ids))
+        return query
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=TRENDING_WINDOW_HOURS)
+    trending = (
+        _base_query()
+        .filter(Article.published_at >= cutoff, Article.view_count > 0)
+        .order_by(Article.view_count.desc(), Article.published_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    if len(trending) < limit:
+        remaining = limit - len(trending)
+        filler_query = _base_query().order_by(Article.published_at.desc(), Article.id.desc())
+        existing_ids = {a.id for a in trending}
+        if existing_ids:
+            filler_query = filler_query.filter(Article.id.notin_(existing_ids))
+        trending.extend(filler_query.limit(remaining).all())
+
+    return trending
 
 
 def get_bookmarked_article_ids(db: Session, user_id: int, article_ids: list[int]) -> set[int]:

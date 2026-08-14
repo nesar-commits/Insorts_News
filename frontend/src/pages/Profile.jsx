@@ -3,12 +3,25 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import { useToast } from '../context/ToastContext'
+import { EditProfileCard } from '../components/EditProfileCard'
+import { ChangePasswordCard } from '../components/ChangePasswordCard'
+import { MutePreferencesCard } from '../components/MutePreferencesCard'
+import { NotificationCategoryPicker } from '../components/NotificationCategoryPicker'
 
 export function Profile() {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const { supported, subscribed, loading, subscribe, unsubscribe } = usePushNotifications()
+  const { supported, subscribed, loading, subscribe, unsubscribe, categoryIds, updateCategoryIds } =
+    usePushNotifications()
   const { showToast } = useToast()
+
+  const handleCategoryChange = async (newCategoryIds) => {
+    try {
+      await updateCategoryIds(newCategoryIds)
+    } catch {
+      showToast('Could not update notification preferences', 'error')
+    }
+  }
 
   const handleToggleNotifications = async () => {
     try {
@@ -76,7 +89,15 @@ export function Profile() {
             </span>
           </button>
         )}
+
+        {supported && !loading && subscribed && (
+          <NotificationCategoryPicker categoryIds={categoryIds} onChange={handleCategoryChange} />
+        )}
       </div>
+
+      <EditProfileCard />
+      <ChangePasswordCard />
+      <MutePreferencesCard />
 
       <button
         type="button"

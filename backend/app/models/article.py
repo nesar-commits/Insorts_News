@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -25,6 +25,10 @@ class Article(Base):
 
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Incremented once per article-detail open (see routes/articles.py's
+    # /view endpoint) — the only signal /trending has for actual popularity
+    # rather than just publish recency.
+    view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     source: Mapped["Source"] = relationship(back_populates="articles")
     category: Mapped["Category"] = relationship(back_populates="articles")

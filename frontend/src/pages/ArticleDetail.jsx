@@ -1,7 +1,8 @@
+import { useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Bookmark, ExternalLink, ImageOff, Share2 } from 'lucide-react'
-import { fetchArticle } from '../api/articles'
+import { fetchArticle, recordArticleView } from '../api/articles'
 import { FullPageSpinner } from '../components/Spinner'
 import { EmptyState } from '../components/EmptyState'
 import { useToggleBookmark } from '../hooks/useToggleBookmark'
@@ -18,6 +19,13 @@ export function ArticleDetail() {
     queryKey: ['article', id],
     queryFn: () => fetchArticle(id),
   })
+
+  // Best-effort popularity signal for /trending — fire once per open and
+  // ignore failures silently, since a missed view count must never block
+  // or degrade the actual reading experience.
+  useEffect(() => {
+    recordArticleView(id).catch(() => {})
+  }, [id])
 
   if (isLoading) return <FullPageSpinner />
 

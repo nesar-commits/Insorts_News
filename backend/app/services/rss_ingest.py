@@ -27,16 +27,17 @@ _last_push_sent_at: datetime | None = None
 
 @dataclass
 class NewArticle:
-    """Plain snapshot of a just-inserted article's id/title/published_at —
-    used for the breaking-news push. Deliberately not the ORM Article object
-    itself: holding that across a whole ingest run risks ObjectDeletedError
-    if a later `db.rollback()` (or a concurrent process touching the same
-    row) expires it before we get to use it.
+    """Plain snapshot of a just-inserted article's id/title/published_at/
+    category_id — used for the breaking-news push. Deliberately not the
+    ORM Article object itself: holding that across a whole ingest run
+    risks ObjectDeletedError if a later `db.rollback()` (or a concurrent
+    process touching the same row) expires it before we get to use it.
     """
 
     id: int
     title: str
     published_at: datetime
+    category_id: int
 
 IMG_TAG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
 
@@ -262,7 +263,14 @@ def fetch_and_store_source(db: Session, source: Source, fetch_missing_images: bo
             continue
         # Snapshot now, while the row is guaranteed fresh — see NewArticle's
         # docstring for why we don't hold onto the ORM object itself.
-        new_articles.append(NewArticle(id=article.id, title=article.title, published_at=article.published_at))
+        new_articles.append(
+            NewArticle(
+                id=article.id,
+                title=article.title,
+                published_at=article.published_at,
+                category_id=article.category_id,
+            )
+        )
 
     if new_articles:
         db.commit()
@@ -303,6 +311,7 @@ def _maybe_send_breaking_news_push(db: Session, new_articles: list[NewArticle]) 
         title="Breaking news",
         body=top_article.title,
         url=f"/article/{top_article.id}",
+        category_id=top_article.category_id,
     )
     if sent:
         _last_push_sent_at = now
