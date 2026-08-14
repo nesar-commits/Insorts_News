@@ -1,6 +1,7 @@
 import json
 import logging
 
+import requests
 from pywebpush import WebPushException, webpush
 from sqlalchemy.orm import Session
 
@@ -39,4 +40,12 @@ def send_push_to_all(db: Session, title: str, body: str, url: str = "/") -> int:
                 delete_subscription_by_id(db, sub.id)
             else:
                 logger.warning("Push failed for subscription %s: %s", sub.id, exc)
+        except requests.exceptions.RequestException as exc:
+            # webpush() only wraps a non-2xx *response* in WebPushException —
+            # a transport-level failure (DNS failure, connection refused,
+            # timeout, TLS error) raises straight from the underlying
+            # `requests` call instead. Without this, one subscriber with a
+            # dead endpoint would abort the loop and silently skip every
+            # subscriber after it in this batch.
+            logger.warning("Push transport error for subscription %s: %s", sub.id, exc)
     return sent

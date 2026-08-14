@@ -8,6 +8,7 @@ import { useShareArticle } from '../hooks/useShareArticle'
 import { getCategoryIcon } from '../utils/categoryIcons'
 import { getCategoryGradient } from '../utils/categoryTheme'
 import { timeAgo } from '../utils/timeAgo'
+import { safeHref } from '../utils/safeUrl'
 import { EmptyState } from '../components/EmptyState'
 import { Spinner } from '../components/Spinner'
 
@@ -147,7 +148,7 @@ function BriefSlide({ article }) {
           </button>
 
           <a
-            href={article.url}
+            href={safeHref(article.url)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}

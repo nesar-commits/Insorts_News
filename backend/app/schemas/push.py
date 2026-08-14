@@ -1,4 +1,5 @@
 import ipaddress
+import socket
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
@@ -21,18 +22,30 @@ class PushSubscriptionCreate(BaseModel):
         # internal service or cloud metadata endpoint (SSRF) via a fake but
         # schema-valid subscription. Real push services are always a real
         # https hostname, never a raw IP or localhost.
+        #
+        # Checking the hostname string itself (e.g. rejecting anything
+        # ipaddress.ip_address() parses) isn't enough: that function only
+        # recognizes canonical dotted-decimal/hex-IPv6 notation, while the
+        # resolver actually used to make the outbound request also accepts
+        # decimal/octal/hex-encoded IPv4 forms (e.g. "2852039166" resolves
+        # to 169.254.169.254, the cloud metadata address) that sail right
+        # past a string check. Resolving the hostname and checking the real
+        # IP(s) it points to is the only check that can't be bypassed by
+        # re-encoding the same address differently.
         parsed = urlparse(value)
         if parsed.scheme != "https":
             raise ValueError("endpoint must be an https:// URL")
         hostname = parsed.hostname or ""
-        if not hostname or hostname == "localhost":
+        if not hostname:
             raise ValueError("invalid endpoint host")
         try:
-            ipaddress.ip_address(hostname)
-        except ValueError:
-            pass
-        else:
-            raise ValueError("endpoint host must not be a raw IP address")
+            resolved_ips = {info[4][0] for info in socket.getaddrinfo(hostname, 443)}
+        except OSError:
+            raise ValueError("endpoint host does not resolve")
+        for ip_str in resolved_ips:
+            addr = ipaddress.ip_address(ip_str)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved or addr.is_multicast:
+                raise ValueError("endpoint host must not resolve to a private/internal address")
         return value
 
 

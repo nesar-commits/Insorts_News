@@ -112,6 +112,19 @@ def ensure_categories_and_sources(db: Session) -> None:
 _BOGUS_SEGMENTS = ("undefined", "null", "none")
 
 
+def _is_http_url(url: str | None) -> bool:
+    """Article links come straight from whatever a feed publishes in its
+    <link> element — a compromised or malicious feed could put a
+    javascript: URI there instead of a real link, which the frontend
+    later renders directly as an anchor href. Only http(s) is a real
+    article link; anything else must never reach the database.
+    """
+    if not url:
+        return False
+    parsed = urlparse(url.strip())
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
 def _is_valid_image_url(url: str | None) -> bool:
     """Guards against garbage some feeds occasionally emit — e.g. NPR's feed
     has been observed to include a <link type="image/..."> whose href is the
@@ -202,7 +215,7 @@ def fetch_and_store_source(db: Session, source: Source, fetch_missing_images: bo
 
     for entry in parsed.entries[:50]:
         url = getattr(entry, "link", None)
-        if not url or url in seen_urls:
+        if not url or url in seen_urls or not _is_http_url(url):
             continue
         seen_urls.add(url)
 

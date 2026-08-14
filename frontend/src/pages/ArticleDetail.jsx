@@ -7,6 +7,7 @@ import { EmptyState } from '../components/EmptyState'
 import { useToggleBookmark } from '../hooks/useToggleBookmark'
 import { useShareArticle } from '../hooks/useShareArticle'
 import { timeAgo } from '../utils/timeAgo'
+import { safeHref } from '../utils/safeUrl'
 
 export function ArticleDetail() {
   const { id } = useParams()
@@ -73,7 +74,7 @@ export function ArticleDetail() {
 
       <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5 dark:border-white/10">
         <a
-          href={article.url}
+          href={safeHref(article.url)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"

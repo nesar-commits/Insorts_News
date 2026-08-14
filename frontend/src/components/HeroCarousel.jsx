@@ -24,7 +24,13 @@ export function HeroCarousel({ articles }) {
 
   if (!articles.length) return null
 
-  const article = articles[index]
+  // `articles` can shrink out from under an already-mounted carousel (e.g.
+  // any bookmark toggle anywhere in the app invalidates the ['trending']
+  // query, refetching it live) while `index` still points past the new
+  // end — clamp defensively rather than indexing straight into a
+  // shorter array and crashing on `article.category` below.
+  const safeIndex = Math.min(index, articles.length - 1)
+  const article = articles[safeIndex]
   const Icon = getCategoryIcon(article.category.icon)
 
   return (
@@ -63,7 +69,7 @@ export function HeroCarousel({ articles }) {
 
       <button
         type="button"
-        onClick={() => goTo(index - 1)}
+        onClick={() => goTo(safeIndex - 1)}
         aria-label="Previous"
         className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60 sm:flex"
       >
@@ -71,7 +77,7 @@ export function HeroCarousel({ articles }) {
       </button>
       <button
         type="button"
-        onClick={() => goTo(index + 1)}
+        onClick={() => goTo(safeIndex + 1)}
         aria-label="Next"
         className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60 sm:flex"
       >
@@ -86,7 +92,7 @@ export function HeroCarousel({ articles }) {
             aria-label={`Go to slide ${i + 1}`}
             onClick={() => goTo(i)}
             className={`h-1.5 rounded-full transition-all ${
-              i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40'
+              i === safeIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40'
             }`}
           />
         ))}
