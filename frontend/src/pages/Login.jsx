@@ -43,7 +43,11 @@ export function Login() {
       </div>
       <div className="text-center">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Log in to save and sync your articles</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {location.state?.from?.pathname === '/briefs'
+            ? 'Log in to access Briefs'
+            : 'Log in to save and sync your articles'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
@@ -86,7 +90,7 @@ export function Login() {
 
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Don&apos;t have an account?{' '}
-        <Link to="/register" className="font-semibold text-brand-600 dark:text-brand-400">
+        <Link to="/register" state={location.state} className="font-semibold text-brand-600 dark:text-brand-400">
           Sign up
         </Link>
       </p>

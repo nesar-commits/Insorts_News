@@ -32,9 +32,9 @@ def create_user(db: Session, user_in: UserCreate) -> User:
 
 
 def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
-    if user_in.username is not None:
+    if "username" in user_in.model_fields_set and user_in.username is not None:
         user.username = user_in.username
-    if user_in.full_name is not None:
+    if "full_name" in user_in.model_fields_set:
         user.full_name = user_in.full_name
     db.commit()
     db.refresh(user)

@@ -51,4 +51,6 @@ def send_push_to_all(db: Session, title: str, body: str, url: str = "/", categor
             # dead endpoint would abort the loop and silently skip every
             # subscriber after it in this batch.
             logger.warning("Push transport error for subscription %s: %s", sub.id, exc)
+        except Exception as exc:
+            logger.warning("Unexpected error sending push for subscription %s: %s", sub.id, exc)
     return sent

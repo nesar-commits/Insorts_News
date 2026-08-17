@@ -55,7 +55,7 @@ _HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; InsortsNewsBot/1.0; +ht
 DUPLICATE_TITLE_WINDOW = timedelta(hours=6)
 
 
-def _fetch_og_image(article_url: str, timeout: float = 5.0) -> str | None:
+def _fetch_og_image(article_url: str, timeout: float = 2.0) -> str | None:
     """Best-effort fallback: some RSS feeds embed no image at all, but the
     article's own page almost always has an og:image/twitter:image meta tag
     for social-link previews. Never raises — a miss here just means we keep
@@ -89,13 +89,19 @@ def ensure_categories_and_sources(db: Session) -> None:
             existing = Category(name=cat["name"], slug=cat["slug"], icon=cat["icon"])
             db.add(existing)
             db.flush()
+        else:
+            if existing.name != cat["name"] or existing.icon != cat["icon"]:
+                existing.name = cat["name"]
+                existing.icon = cat["icon"]
         slug_to_category[cat["slug"]] = existing
     db.commit()
 
     for name, feed_url, site_url, category_slug, region, language, city in FEEDS:
+        category = slug_to_category.get(category_slug)
+        if not category:
+            continue
         existing = db.query(Source).filter(Source.feed_url == feed_url).first()
         if not existing:
-            category = slug_to_category[category_slug]
             db.add(
                 Source(
                     name=name,
@@ -107,6 +113,18 @@ def ensure_categories_and_sources(db: Session) -> None:
                     city=city,
                 )
             )
+        else:
+            if existing.category_id != category.id:
+                existing.category_id = category.id
+                db.query(Article).filter(Article.source_id == existing.id).update(
+                    {Article.category_id: category.id}, synchronize_session=False
+                )
+            if existing.region != region:
+                existing.region = region
+            if existing.language != language:
+                existing.language = language
+            if existing.city != city:
+                existing.city = city
     db.commit()
 
 
@@ -243,12 +261,15 @@ def fetch_and_store_source(db: Session, source: Source, fetch_missing_images: bo
         if not _is_valid_image_url(image_url):
             image_url = None
 
+        raw_author = getattr(entry, "author", None)
+        author = raw_author[:200] if raw_author else None
+
         article = Article(
             title=title,
             summary=_clean_summary(entry),
-            url=url,
-            image_url=image_url,
-            author=getattr(entry, "author", None),
+            url=url[:1000],
+            image_url=image_url[:1000] if image_url else None,
+            author=author,
             source_id=source.id,
             category_id=source.category_id,
             published_at=published_at,

@@ -18,7 +18,14 @@ function App() {
       <ScrollManager />
       <Routes>
         {/* Briefs renders full-bleed, edge-to-edge — deliberately outside the padded Layout shell */}
-        <Route path="/briefs" element={<Briefs />} />
+        <Route
+          path="/briefs"
+          element={
+            <ProtectedRoute>
+              <Briefs />
+            </ProtectedRoute>
+          }
+        />
 
         <Route element={<Layout />}>
           <Route path="/" element={<Feed />} />

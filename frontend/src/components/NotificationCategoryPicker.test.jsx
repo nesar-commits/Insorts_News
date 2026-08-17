@@ -60,4 +60,26 @@ describe('NotificationCategoryPicker', () => {
 
     expect(onChange).toHaveBeenCalledWith(null)
   })
+
+  it('deselecting the last remaining category sends [], not null', async () => {
+    // Regression: this must be a real "opted out of everything" signal,
+    // distinguishable from the "all categories" default.
+    const onChange = vi.fn()
+    renderPicker({ categoryIds: [3], onChange })
+
+    fireEvent.click(await screen.findByText('Sports'))
+
+    expect(onChange).toHaveBeenCalledWith([])
+  })
+
+  it('selecting every category individually collapses back to null', async () => {
+    // So a category added later is automatically included too, matching
+    // what clicking "All categories" would have done.
+    const onChange = vi.fn()
+    renderPicker({ categoryIds: [1, 2], onChange })
+
+    fireEvent.click(await screen.findByText('Sports'))
+
+    expect(onChange).toHaveBeenCalledWith(null)
+  })
 })

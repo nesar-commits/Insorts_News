@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Newspaper, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -10,6 +10,7 @@ export function Register() {
   const { register } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [form, setForm] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
@@ -43,7 +44,7 @@ export function Register() {
     try {
       await register({ ...form, username, fullName: fullName || null })
       showToast('Account created — welcome to Insorts News!', 'success')
-      navigate('/', { replace: true })
+      navigate(location.state?.from?.pathname || '/', { replace: true })
     } catch (err) {
       setError(getErrorMessage(err, 'Could not create your account'))
     } finally {
@@ -58,7 +59,11 @@ export function Register() {
       </div>
       <div className="text-center">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Create your account</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Personalize your feed and save stories</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {location.state?.from?.pathname === '/briefs'
+            ? 'Sign up to access Briefs'
+            : 'Personalize your feed and save stories'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
@@ -136,7 +141,7 @@ export function Register() {
 
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{' '}
-        <Link to="/login" className="font-semibold text-brand-600 dark:text-brand-400">
+        <Link to="/login" state={location.state} className="font-semibold text-brand-600 dark:text-brand-400">
           Log in
         </Link>
       </p>

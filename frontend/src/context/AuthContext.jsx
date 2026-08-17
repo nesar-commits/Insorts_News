@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { fetchCurrentUser, loginUser, registerUser, updateProfile as updateProfileRequest } from '../api/auth'
 import { SESSION_EXPIRED_EVENT } from '../api/client'
@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
   }, [showToast])
 
-  const persistSession = (token, sessionUser) => {
+  const persistSession = useCallback((token, sessionUser) => {
     localStorage.setItem('insorts_token', token)
     localStorage.setItem('insorts_user', JSON.stringify(sessionUser))
     setUser(sessionUser)
@@ -59,28 +59,28 @@ export function AuthProvider({ children }) {
     queryClient.invalidateQueries({ queryKey: ['trending'] })
     queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
     queryClient.invalidateQueries({ queryKey: ['article'] })
-  }
+  }, [queryClient])
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const data = await loginUser({ email, password })
     persistSession(data.access_token, data.user)
     return data.user
-  }
+  }, [persistSession])
 
-  const register = async ({ email, username, password, fullName }) => {
+  const register = useCallback(async ({ email, username, password, fullName }) => {
     const data = await registerUser({ email, username, password, fullName })
     persistSession(data.access_token, data.user)
     return data.user
-  }
+  }, [persistSession])
 
-  const updateProfile = async ({ username, fullName }) => {
+  const updateProfile = useCallback(async ({ username, fullName }) => {
     const freshUser = await updateProfileRequest({ username, fullName })
     setUser(freshUser)
     localStorage.setItem('insorts_user', JSON.stringify(freshUser))
     return freshUser
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('insorts_token')
     localStorage.removeItem('insorts_user')
     setUser(null)
@@ -88,11 +88,11 @@ export function AuthProvider({ children }) {
     queryClient.invalidateQueries({ queryKey: ['trending'] })
     queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
     queryClient.invalidateQueries({ queryKey: ['article'] })
-  }
+  }, [queryClient])
 
   const value = useMemo(
     () => ({ user, loading, isAuthenticated: !!user, login, register, logout, updateProfile }),
-    [user, loading]
+    [user, loading, login, register, logout, updateProfile]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

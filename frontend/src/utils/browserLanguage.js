@@ -4,5 +4,5 @@
 export function getBrowserLanguage() {
   const locale = navigator.language || navigator.languages?.[0]
   if (!locale) return null
-  return locale.split('-')[0].toLowerCase()
+  return locale.split(/[-_]/)[0].toLowerCase().slice(0, 3)
 }

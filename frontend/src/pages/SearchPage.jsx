@@ -34,7 +34,7 @@ export function SearchPage() {
     }
   }, [searchParams])
 
-  const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteArticles({
+  const { data, isLoading, isError, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteArticles({
     search: debouncedQuery,
   })
 
@@ -80,7 +80,15 @@ export function SearchPage() {
 
       {debouncedQuery && isLoading && <ArticleGridSkeleton count={6} />}
 
-      {debouncedQuery && !isLoading && articles.length === 0 && (
+      {debouncedQuery && isError && (
+        <EmptyState
+          icon={SearchIcon}
+          title="Search failed"
+          description="Check your connection and try again in a moment."
+        />
+      )}
+
+      {debouncedQuery && !isLoading && !isError && articles.length === 0 && (
         <EmptyState
           icon={SearchIcon}
           title={`No results for "${debouncedQuery}"`}

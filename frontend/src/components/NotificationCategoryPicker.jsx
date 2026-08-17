@@ -16,9 +16,14 @@ export function NotificationCategoryPicker({ categoryIds, onChange }) {
   const allSelected = categoryIds === null
 
   const toggleOne = (id) => {
-    const current = categoryIds ?? categories?.map((c) => c.id) ?? []
+    const allIds = categories?.map((c) => c.id) ?? []
+    const current = categoryIds ?? allIds
     const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id]
-    onChange(next)
+    // Selecting every category one-by-one should behave the same as the
+    // "All categories" button (null), including auto-including categories
+    // added later — not freeze in the set that happened to exist right now.
+    const isEveryCategory = allIds.length > 0 && allIds.every((catId) => next.includes(catId))
+    onChange(isEveryCategory ? null : next)
   }
 
   return (

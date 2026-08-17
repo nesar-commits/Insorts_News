@@ -103,7 +103,9 @@ export function usePushNotifications() {
 
     await apiClient.put('/push/categories', {
       ...subscriptionInfo(subscription),
-      category_ids: newCategoryIds ?? [],
+      // null and [] are different preferences server-side (every category
+      // vs. explicitly none) — don't collapse them into the same payload.
+      category_ids: newCategoryIds,
     })
     setCategoryIds(newCategoryIds)
     if (newCategoryIds === null) {

@@ -20,6 +20,14 @@ def test_update_full_name(client, auth_headers):
     assert response.json()["full_name"] == "New Name"
 
 
+def test_clear_full_name(client, auth_headers):
+    client.patch("/api/users/me", json={"full_name": "Initial Name"}, headers=auth_headers)
+    response = client.patch("/api/users/me", json={"full_name": None}, headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] is None
+
+
 def test_update_username(client, auth_headers):
     response = client.patch("/api/users/me", json={"username": "newname"}, headers=auth_headers)
 

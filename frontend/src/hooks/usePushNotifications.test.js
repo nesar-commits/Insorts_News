@@ -98,6 +98,40 @@ describe('usePushNotifications category preferences', () => {
     expect(localStorage.getItem(CATEGORY_PREFS_KEY)).toBeNull()
   })
 
+  it('updateCategoryIds([]) sends an explicit empty list, not null-as-all', async () => {
+    // Regression: [] ("opted out of every category") must reach the
+    // backend as [], not get collapsed into the "all categories" payload —
+    // those are different preferences server-side.
+    const sub = fakeSubscription()
+    mockServiceWorker(sub)
+    apiClient.put.mockResolvedValue({})
+    const { result } = renderHook(() => usePushNotifications())
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => result.current.updateCategoryIds([]))
+
+    expect(apiClient.put).toHaveBeenCalledWith(
+      '/push/categories',
+      expect.objectContaining({ endpoint: sub.endpoint, category_ids: [] })
+    )
+    expect(result.current.categoryIds).toEqual([])
+  })
+
+  it('updateCategoryIds(null) sends null, not an empty list', async () => {
+    const sub = fakeSubscription()
+    mockServiceWorker(sub)
+    apiClient.put.mockResolvedValue({})
+    const { result } = renderHook(() => usePushNotifications())
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => result.current.updateCategoryIds(null))
+
+    expect(apiClient.put).toHaveBeenCalledWith(
+      '/push/categories',
+      expect.objectContaining({ endpoint: sub.endpoint, category_ids: null })
+    )
+  })
+
   it('updateCategoryIds is a no-op with no active subscription', async () => {
     mockServiceWorker(null)
     const { result } = renderHook(() => usePushNotifications())

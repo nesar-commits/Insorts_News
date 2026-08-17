@@ -63,4 +63,7 @@ class PushCategoryUpdate(BaseModel):
     # row by (endpoint, keys) as proof of ownership, same as unsubscribe.
     endpoint: str = Field(max_length=1000)
     keys: PushKeys
-    category_ids: list[int]
+    # None means "every category" (reset to the default); an empty list
+    # means "opted out of every category" — a distinct preference. See
+    # PushSubscription.receives_all_categories.
+    category_ids: list[int] | None

@@ -31,27 +31,12 @@ export function HeroCarousel({ articles }) {
   // shorter array and crashing on `article.category` below.
   const safeIndex = Math.min(index, articles.length - 1)
   const article = articles[safeIndex]
-  const Icon = getCategoryIcon(article.category.icon)
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gray-900 shadow-lg">
       <Link to={`/article/${article.id}`} className="block">
         <div className="relative aspect-[16/9] w-full sm:aspect-[21/9]">
-          {article.image_url ? (
-            <img
-              key={article.id}
-              src={article.image_url}
-              alt=""
-              className="h-full w-full object-cover opacity-80"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          ) : (
-            <div className="flex h-full w-full items-start justify-end bg-gradient-to-br from-brand-800 to-gray-900 p-5 text-brand-400/40 sm:p-8">
-              <Icon size={40} className="sm:h-14 sm:w-14" />
-            </div>
-          )}
+          <CarouselImage key={article.id} article={article} />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
             <span className="mb-2 inline-block rounded-full bg-accent-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
@@ -100,3 +85,26 @@ export function HeroCarousel({ articles }) {
     </div>
   )
 }
+
+function CarouselImage({ article }) {
+  const [imgError, setImgError] = useState(false)
+  const Icon = getCategoryIcon(article.category.icon)
+
+  if (article.image_url && !imgError) {
+    return (
+      <img
+        src={article.image_url}
+        alt=""
+        className="h-full w-full object-cover opacity-80"
+        onError={() => setImgError(true)}
+      />
+    )
+  }
+
+  return (
+    <div className="flex h-full w-full items-start justify-end bg-gradient-to-br from-brand-800 to-gray-900 p-5 text-brand-400/40 sm:p-8">
+      <Icon size={40} className="sm:h-14 sm:w-14" />
+    </div>
+  )
+}
+
